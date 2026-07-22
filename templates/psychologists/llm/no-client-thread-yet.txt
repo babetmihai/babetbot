@@ -1,0 +1,2 @@
+
+No client messages in the psychologist thread yet. Draft the psychologist's opening message based on the case background.

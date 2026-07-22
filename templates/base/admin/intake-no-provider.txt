@@ -1,0 +1,5 @@
+⚠️ Intake ready — no provider available
+
+{intakeSummary}
+
+Have providers send /join Your Name in a private chat with the bot.

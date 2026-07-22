@@ -1,0 +1,2 @@
+
+No client messages in the provider thread yet. Draft the provider's opening message based on the case background.

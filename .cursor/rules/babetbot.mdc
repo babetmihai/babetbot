@@ -1,0 +1,28 @@
+---
+description: Babetbot coding principles
+alwaysApply: true
+---
+
+# Babetbot
+
+Node · TypeScript · Express · Telegraf · LangGraph · Supabase · OpenAI. ESM (`tsx`), `.js` import paths, env via `dotenv` at repo root.
+
+**Layout:** `src/bot/` — Telegram handlers; `src/lib/` — domain logic (cases, goals, providers, agent, rag, tools). Handlers compose from `lib/`. User-facing copy lives in `templates/`.
+
+## Principles
+
+1. **Simplicity** — smallest design that works. One owner per write/concern; no parallel pipelines or backup paths unless asked. Intake saves go through agent tools (`update_user_goal` + `validateGoalValue`) only — no classifier/regex pre-pipeline. Validate at save time.
+2. **Minimal scope** — do only what was asked; small localized diff; no refactor, docs, tests, or abstractions unless asked. Ask before future-proofing or broadening fixes.
+3. **Direct code** — assume valid inputs and required env (throw at startup, not silent defaults). No defensive `?.`/`??` fallbacks for data that should exist. `try/catch` only when the caller must recover; catch variable `error`; use `error.message` (no `instanceof` checks); one try/catch per recoverable step.
+4. **Few layers** — inline logic used once; no thin wrappers or rename aliases. Extract helpers only at 2+ uses. Prefer lodash (`import _ from "lodash"`) at the call site for transforms (`keyBy`, `find`, `merge`, etc.) over one-off helpers.
+
+## Code style
+
+- **Format:** no semicolons or trailing commas; double quotes; 2-space indent; `{ key: value }`; max 140 cols.
+- **Async:** `await` on its own line before `if`/branching — never inside condition expressions.
+- **Conditionals:** named booleans; no nested ternaries; simple ternary for two values OK; `switch (true)` for query routing; use `if` for imperative steps.
+- **Access:** typed SDKs (Telegraf `ctx`, LangChain) — direct dot access, no root destructure. Untyped project data (rows, case records, parsed args) — `const { field } = obj || {}`, not chained `?.`.
+- **Types:** infer; omit param/return annotations (`strict: false`). New project types/interfaces/enums: `T` prefix (`TAgentRuntime`). Existing exports (`CaseRecord`, `UserGoal`) stay. Domain types at top of `lib/<domain>.ts` — no `*-types.ts` folders. Type `unknown` SDK callbacks on the parameter, not inline casts.
+- **Naming:** async DB/API loaders `fetch*` (plural for lists); sync/in-memory reads `get*`. No `Async` prefix on functions.
+- **Helpers:** `const fn = async () => {}` at file bottom — never nested inside handlers/middleware/tool callbacks. No `function` declarations for helpers.
+- **bot/:** no regex for semantic decisions; `startsWith`/`split`/`trim` OK for commands and formatting.

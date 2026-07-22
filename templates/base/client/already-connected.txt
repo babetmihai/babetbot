@@ -1,0 +1,1 @@
+You are already connected with {providerName}. Continue messaging here.

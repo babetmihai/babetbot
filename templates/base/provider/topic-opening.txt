@@ -1,0 +1,4 @@
+Reply in this topic to message the client.
+Use /pay amount description to request payment from the client.
+Use /close when you are done with the case.
+Use /analyze to summarize action points from the conversation.

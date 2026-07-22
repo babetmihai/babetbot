@@ -1,0 +1,2 @@
+{providerName} requests payment of {amountLabel}.
+{descriptionLine}Use the button below to pay securely with card.

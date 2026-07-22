@@ -1,0 +1,1 @@
+Only the assigned lawyer can use /analyze.

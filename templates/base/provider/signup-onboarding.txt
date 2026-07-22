@@ -1,0 +1,4 @@
+Provider onboarding
+
+Send /join Your Name to request access.
+Example: /join Maria Popescu

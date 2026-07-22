@@ -1,0 +1,15 @@
+Commands:
+/start
+/help
+
+Psychologists:
+/join Your Name — request practice access
+
+Practice admins:
+Upload PDF documents to add practice FAQ material
+
+Psychologists (in case topics):
+/pay 150 Payment description
+/close
+/analyze — summarize action points from the conversation
+/delete — remove a closed case topic

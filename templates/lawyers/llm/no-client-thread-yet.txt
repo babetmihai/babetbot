@@ -1,0 +1,2 @@
+
+No client messages in the lawyer thread yet. Draft the lawyer's opening message based on the case background.

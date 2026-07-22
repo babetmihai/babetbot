@@ -1,0 +1,1 @@
+Your payment of {amountLabel} has been refunded. It may take a few days to appear on your statement.

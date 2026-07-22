@@ -1,0 +1,5 @@
+⚠️ Intake ready — no psychologist available
+
+{intakeSummary}
+
+Have psychologists send /join Your Name in a private chat with the bot.

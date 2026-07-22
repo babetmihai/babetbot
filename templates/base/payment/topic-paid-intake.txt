@@ -1,0 +1,1 @@
+✓ Client paid {amountLabel} (intake fee).

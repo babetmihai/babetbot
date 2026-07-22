@@ -1,0 +1,1 @@
+Approved provider signup: {name} ({telegramUserId})
