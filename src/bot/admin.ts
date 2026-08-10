@@ -1,5 +1,5 @@
 import { Composer } from "telegraf"
-import { respondToProviderSignupRequest } from "../lib/providers.js"
+import { respondToProviderSignupRequest } from "../lib/providers.ts"
 
 
 const bot = new Composer()

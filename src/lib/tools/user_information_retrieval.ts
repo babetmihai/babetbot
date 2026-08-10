@@ -1,7 +1,7 @@
 import { tool } from "@langchain/core/tools"
 import { z } from "zod"
-import rag from "../rag.js"
-import { type TToolConfig } from "../agent.js"
+import rag from "../rag.ts"
+import type { TToolConfig } from "../agent.ts"
 
 
 const _tool = tool(async ({ query, k = 6 }, config: TToolConfig) => {

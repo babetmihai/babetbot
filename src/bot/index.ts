@@ -1,16 +1,16 @@
 import { Telegraf } from "telegraf"
-import textBot from "./text.js"
-import uploadBot from "./upload.js"
-import relayBot from "./relay.js"
-import adminBot from "./admin.js"
-import { TELEGRAM_BOT_TOKEN, LEGAL_DISCLAIMER } from "../config.js"
+import textBot from "./text.ts"
+import uploadBot from "./upload.ts"
+import relayBot from "./relay.ts"
+import adminBot from "./admin.ts"
+import { TELEGRAM_BOT_TOKEN, LEGAL_DISCLAIMER } from "../config.ts"
 import {
   buildProviderWelcomeText,
   fetchProviderByTelegramUserId,
   markProviderBotStarted,
   submitProviderSignupRequest
-} from "../lib/providers.js"
-import { renderTemplate } from "../lib/templates.js"
+} from "../lib/providers.ts"
+import { renderTemplate } from "../lib/templates.ts"
 
 
 export const bot = new Telegraf(TELEGRAM_BOT_TOKEN)

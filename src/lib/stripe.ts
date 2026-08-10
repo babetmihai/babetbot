@@ -3,8 +3,8 @@ import {
   STRIPE_CURRENCY,
   STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET
-} from "../config.js"
-import { fetchBotUsername } from "./telegram.js"
+} from "../config.ts"
+import { fetchBotUsername } from "./telegram.ts"
 
 
 export const stripe = new Stripe(STRIPE_SECRET_KEY)

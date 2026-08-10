@@ -1,5 +1,5 @@
 import { Telegram } from "telegraf"
-import { TELEGRAM_BOT_TOKEN } from "../config.js"
+import { TELEGRAM_BOT_TOKEN } from "../config.ts"
 
 
 export const telegram = new Telegram(TELEGRAM_BOT_TOKEN!)

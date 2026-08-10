@@ -1,9 +1,9 @@
 import { HumanMessage } from "@langchain/core/messages"
 import { ChatOpenAI } from "@langchain/openai"
-import { OPENAI_API_KEY, PROMPT_TYPES } from "../config.js"
-import { fetchProvider } from "./providers.js"
-import rag from "./rag.js"
-import { renderTemplate, loadTemplate } from "./templates.js"
+import { OPENAI_API_KEY, PROMPT_TYPES } from "../config.ts"
+import { fetchProvider } from "./providers.ts"
+import rag from "./rag.ts"
+import { renderTemplate, loadTemplate } from "./templates.ts"
 
 
 const ANALYZE_MODEL = process.env.AGENT_MODEL ?? "gpt-4o-mini"

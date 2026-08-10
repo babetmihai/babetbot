@@ -1,5 +1,5 @@
 import admin from "firebase-admin"
-import { FIREBASE_PROJECT_ID } from "../config.js"
+import { FIREBASE_PROJECT_ID } from "../config.ts"
 
 
 if (!admin.apps.length) {

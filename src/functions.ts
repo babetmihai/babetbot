@@ -1,8 +1,8 @@
 import { onInit } from "firebase-functions/v2/core"
 import { onRequest } from "firebase-functions/v2/https"
-import app from "./app.js"
-import { FIREBASE_PROJECT_ID, PUBLIC_BASE_URL } from "./config.js"
-import { registerWebhooks } from "./webhooks.js"
+import app from "./app.ts"
+import { FIREBASE_PROJECT_ID, PUBLIC_BASE_URL } from "./config.ts"
+import { registerWebhooks } from "./webhooks.ts"
 
 
 const FUNCTION_REGION = "europe-west1"

@@ -1,13 +1,13 @@
-import db from "./firestore.js"
-import { STRIPE_CURRENCY } from "../config.js"
-import { fetchProvider } from "./providers.js"
-import { renderTemplate } from "./templates.js"
-import { sendToTopic, telegram } from "./telegram.js"
+import db from "./firestore.ts"
+import { STRIPE_CURRENCY } from "../config.ts"
+import { fetchProvider } from "./providers.ts"
+import { renderTemplate } from "./templates.ts"
+import { sendToTopic, telegram } from "./telegram.ts"
 import {
   createProviderCheckoutSession,
   refundStripePayment,
   stripe
-} from "./stripe.js"
+} from "./stripe.ts"
 
 
 export type PaymentRecord = {

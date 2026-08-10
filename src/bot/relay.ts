@@ -1,23 +1,23 @@
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
-import { STRIPE_CURRENCY } from "../config.js"
+import { STRIPE_CURRENCY } from "../config.ts"
 import {
   closeCase,
   deleteClosedCaseTopic,
   fetchActiveCaseInTopic,
   fetchClosedCaseInTopic,
   respondToProviderOffer
-} from "../lib/cases.js"
-import { createProviderPaymentRequest, formatPaymentAmount, refundPaymentAsProvider } from "../lib/payments.js"
-import { analyzeTelegramFileMessage } from "../lib/files.js"
-import { relayProviderMessage } from "../lib/relay.js"
+} from "../lib/cases.ts"
+import { createProviderPaymentRequest, formatPaymentAmount, refundPaymentAsProvider } from "../lib/payments.ts"
+import { analyzeTelegramFileMessage } from "../lib/files.ts"
+import { relayProviderMessage } from "../lib/relay.ts"
 import {
   formatConversationAnalysis,
   generateConversationAnalysis
-} from "../lib/conversation-analysis.js"
-import { fetchProvider } from "../lib/providers.js"
-import { renderTemplate } from "../lib/templates.js"
-import { fetchBotId } from "../lib/telegram.js"
+} from "../lib/conversation-analysis.ts"
+import { fetchProvider } from "../lib/providers.ts"
+import { renderTemplate } from "../lib/templates.ts"
+import { fetchBotId } from "../lib/telegram.ts"
 
 
 const bot = new Composer()

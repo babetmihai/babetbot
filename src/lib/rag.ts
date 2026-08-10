@@ -3,8 +3,8 @@ import { OpenAIEmbeddings } from "@langchain/openai"
 import path from "path"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
-import db, { FieldValue, deleteQueryDocs } from "./firestore.js"
-import { KB_USER_ID, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.js"
+import db, { FieldValue, deleteQueryDocs } from "./firestore.ts"
+import { KB_USER_ID, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.ts"
 
 
 export const embeddings = new OpenAIEmbeddings({

@@ -1,6 +1,6 @@
-import db from "./firestore.js"
-import { ADMIN_TELEGRAM_IDS } from "../config.js"
-import { resetAgentThread } from "./checkpointer.js"
+import db from "./firestore.ts"
+import { ADMIN_TELEGRAM_IDS } from "../config.ts"
+import { resetAgentThread } from "./checkpointer.ts"
 import {
   areIntakeGoalsComplete,
   buildIntakeSummary,
@@ -8,13 +8,13 @@ import {
   getRequiredIntakeGoals,
   mergeUserGoals,
   resetClientIntake
-} from "./goals.js"
+} from "./goals.ts"
 import {
   fetchProvider,
   fetchProviderByTelegramUserId,
   fetchOnboardedProviders
-} from "./providers.js"
-import { renderTemplate } from "./templates.js"
+} from "./providers.ts"
+import { renderTemplate } from "./templates.ts"
 import {
   closeForumTopic,
   createForumTopic,
@@ -22,7 +22,7 @@ import {
   editForumTopic,
   sendToTopic,
   telegram
-} from "./telegram.js"
+} from "./telegram.ts"
 
 
 export type CaseRecord = {

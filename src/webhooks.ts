@@ -1,7 +1,7 @@
-import bot from "./bot/index.js"
-import { botPath, stripeWebhookPath } from "./app.js"
-import { STRIPE_DEV, TELEGRAM_SECRET_TOKEN } from "./config.js"
-import { disableStripeWebhook, ensureStripeWebhook } from "./lib/stripe.js"
+import bot from "./bot/index.ts"
+import { botPath, stripeWebhookPath } from "./app.ts"
+import { STRIPE_DEV, TELEGRAM_SECRET_TOKEN } from "./config.ts"
+import { disableStripeWebhook, ensureStripeWebhook } from "./lib/stripe.ts"
 
 
 export const registerWebhooks = async (baseUrl) => {

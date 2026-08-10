@@ -1,5 +1,5 @@
-import rag from "./rag.js"
-import { sendToTopic, telegram } from "./telegram.js"
+import rag from "./rag.ts"
+import { sendToTopic, telegram } from "./telegram.ts"
 
 
 export const relayClientMessage = async (caseRecord, message) => {

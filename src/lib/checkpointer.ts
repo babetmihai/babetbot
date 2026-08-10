@@ -4,7 +4,7 @@ import {
   copyCheckpoint,
   getCheckpointId
 } from "@langchain/langgraph-checkpoint"
-import db, { deleteQueryDocs } from "./firestore.js"
+import db, { deleteQueryDocs } from "./firestore.ts"
 
 
 class FirestoreSaver extends BaseCheckpointSaver {

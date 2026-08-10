@@ -1,7 +1,7 @@
 import ngrok from "@ngrok/ngrok"
-import app from "./app.js"
-import { NGROK_AUTH_TOKEN, PORT, STRIPE_DEV } from "./config.js"
-import { registerWebhooks } from "./webhooks.js"
+import app from "./app.ts"
+import { NGROK_AUTH_TOKEN, PORT, STRIPE_DEV } from "./config.ts"
+import { registerWebhooks } from "./webhooks.ts"
 
 
 const init = async () => {

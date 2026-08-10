@@ -1,7 +1,7 @@
-import { ADMIN_TELEGRAM_IDS, isAdmin } from "../config.js"
-import db from "./firestore.js"
-import { renderTemplate } from "./templates.js"
-import { telegram } from "./telegram.js"
+import { ADMIN_TELEGRAM_IDS, isAdmin } from "../config.ts"
+import db from "./firestore.ts"
+import { renderTemplate } from "./templates.ts"
+import { telegram } from "./telegram.ts"
 
 
 export type Provider = {

@@ -3,11 +3,11 @@ import fs from "fs"
 import axios from "axios"
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
-import { isAdmin } from "../config.js"
-import { fetchActiveCase } from "../lib/cases.js"
-import { relayClientFile } from "../lib/relay.js"
-import { renderTemplate } from "../lib/templates.js"
-import rag from "../lib/rag.js"
+import { isAdmin } from "../config.ts"
+import { fetchActiveCase } from "../lib/cases.ts"
+import { relayClientFile } from "../lib/relay.ts"
+import { renderTemplate } from "../lib/templates.ts"
+import rag from "../lib/rag.ts"
 
 
 const bot = new Composer()

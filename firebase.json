@@ -3,7 +3,7 @@
     {
       "source": ".",
       "codebase": "default",
-      "runtime": "nodejs20",
+      "runtime": "nodejs22",
       "ignore": [
         "node_modules",
         ".git",
@@ -12,18 +12,13 @@
         ".env",
         ".env.*",
         "credentials.json",
-        "src",
         "scripts",
         "downloads",
+        "dist",
         ".cursor",
         ".vscode",
         "*.md",
-        "tsconfig*.json",
-        "dist/index.js",
-        "dist/index.js.map"
-      ],
-      "predeploy": [
-        "npm run build"
+        "tsconfig*.json"
       ]
     }
   ]

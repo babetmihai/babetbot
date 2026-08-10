@@ -1,8 +1,8 @@
 import express from "express"
-import bot from "./bot/index.js"
-import { TELEGRAM_SECRET_TOKEN } from "./config.js"
-import { completePaymentFromSession } from "./lib/payments.js"
-import { verifyStripeWebhook } from "./lib/stripe.js"
+import bot from "./bot/index.ts"
+import { TELEGRAM_SECRET_TOKEN } from "./config.ts"
+import { completePaymentFromSession } from "./lib/payments.ts"
+import { verifyStripeWebhook } from "./lib/stripe.ts"
 
 
 export const botPath = "/bot/webhook"

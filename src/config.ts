@@ -1,5 +1,5 @@
 import "dotenv/config"
-import { renderTemplate } from "./lib/templates.js"
+import { renderTemplate } from "./lib/templates.ts"
 
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 export const TELEGRAM_SECRET_TOKEN = process.env.TELEGRAM_SECRET_TOKEN

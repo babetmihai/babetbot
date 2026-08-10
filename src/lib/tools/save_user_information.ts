@@ -1,8 +1,8 @@
 import { tool } from "@langchain/core/tools"
 import { z } from "zod"
-import rag from "../rag.js"
-import { KB_SCOPE, PROMPT_TYPES } from "../../config.js"
-import { type TToolConfig } from "../agent.js"
+import rag from "../rag.ts"
+import { KB_SCOPE, PROMPT_TYPES } from "../../config.ts"
+import type { TToolConfig } from "../agent.ts"
 
 
 const _tool = tool(async ({ content, topic }, config: TToolConfig) => {

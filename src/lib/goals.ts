@@ -3,11 +3,11 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages"
 import { ChatOpenAI } from "@langchain/openai"
 import { z } from "zod"
 import _ from "lodash"
-import db, { deleteQueryDocs } from "./firestore.js"
-import rag from "./rag.js"
-import { CONSENT_YES_VALUE, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.js"
-import { type TToolConfig } from "./agent.js"
-import { loadJsonTemplate, loadTemplate } from "./templates.js"
+import db, { deleteQueryDocs } from "./firestore.ts"
+import rag from "./rag.ts"
+import { CONSENT_YES_VALUE, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.ts"
+import type { TToolConfig } from "./agent.ts"
+import { loadJsonTemplate, loadTemplate } from "./templates.ts"
 
 
 export type GoalDefinition = {

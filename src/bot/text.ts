@@ -4,8 +4,8 @@ import {
   formatGoalContextForTools,
   mergeUserGoals,
   syncDerivedGoals
-} from "../lib/goals.js"
-import rag from "../lib/rag.js"
+} from "../lib/goals.ts"
+import rag from "../lib/rag.ts"
 import {
   buildIntakeBlockedClientMessage,
   escalateToProvider,
@@ -13,17 +13,17 @@ import {
   getIntakeProviderAvailability,
   isReadyForEscalation,
   notifyIntakeProviderBlocked
-} from "../lib/cases.js"
-import { relayClientMessage } from "../lib/relay.js"
-import { renderTemplate } from "../lib/templates.js"
+} from "../lib/cases.ts"
+import { relayClientMessage } from "../lib/relay.ts"
+import { renderTemplate } from "../lib/templates.ts"
 import {
   AGENT_RECURSION_LIMIT,
   AGENT_TIMEOUT_MS,
   getAgentReply,
   invokeIntakeAgent,
   withTimeout
-} from "../lib/agent.js"
-import { resetAgentThread } from "../lib/checkpointer.js"
+} from "../lib/agent.ts"
+import { resetAgentThread } from "../lib/checkpointer.ts"
 
 
 const bot = new Composer()

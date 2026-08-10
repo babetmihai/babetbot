@@ -3,13 +3,12 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
-  "main": "dist/functions.js",
+  "main": "src/functions.ts",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
     "start": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.build.json",
     "deploy": "firebase deploy --only functions",
     "stripe": "stripe listen --forward-to localhost:8080/stripe/webhook --events checkout.session.completed",
     "migrate:documents-metadata": "tsx scripts/migrate-documents-metadata.ts",
