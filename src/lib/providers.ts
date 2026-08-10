@@ -81,14 +81,6 @@ export const createProvider = async (input) => {
   return fetchProvider(ref.id)
 }
 
-export const formatProviderMention = (provider) => {
-  if (!provider.telegramUsername) return provider.name
-  const handle = provider.telegramUsername.startsWith("@")
-    ? provider.telegramUsername.slice(1)
-    : provider.telegramUsername
-  return `@${handle}`
-}
-
 export const buildProviderWelcomeText = (providerName) =>
   renderTemplate("provider/welcome", { providerName })
 

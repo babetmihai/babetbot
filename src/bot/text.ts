@@ -23,7 +23,7 @@ import {
   invokeIntakeAgent,
   withTimeout
 } from "../lib/agent.ts"
-import { resetAgentThread } from "../lib/checkpointer.ts"
+import checkpointer from "../lib/checkpointer.ts"
 
 
 const bot = new Composer()
@@ -75,7 +75,8 @@ const startTyping = (ctx) => {
 const sendReply = async (ctx, userId, userMessage, reply) => {
   const text = reply.trim()
   await ctx.reply(text)
-  void saveConversationTurns(userId, userMessage, text)
+  void rag.saveConversationTurn(userId, "user", userMessage)
+  void rag.saveConversationTurn(userId, "assistant", text)
 }
 
 const tryConnectClient = async (ctx, userId, chatId, userGoals, userMessage) => {
@@ -112,14 +113,15 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => 
   } catch (error) {
     const errorCode = error.lc_error_code || error.cause?.lc_error_code
     if (errorCode === "INVALID_TOOL_RESULTS") {
-      await resetAgentThread(userId)
+      await checkpointer.deleteThread(userId)
       result = await withTimeout(
         invokeIntakeAgent(textMessage, syncedGoals, agentConfig),
         AGENT_TIMEOUT_MS
       )
     } else if (errorCode === "GRAPH_RECURSION_LIMIT") {
-      await resetAgentThread(userId)
-      const recoveredGoals = await syncDerivedGoals(userId, await mergeUserGoals(userId), textMessage)
+      await checkpointer.deleteThread(userId)
+      const recoveredGoalsBase = await mergeUserGoals(userId)
+      const recoveredGoals = await syncDerivedGoals(userId, recoveredGoalsBase, textMessage)
       const intakeJustCompleted = !wasReadyForEscalation && isReadyForEscalation(recoveredGoals)
       if (intakeJustCompleted) {
         const handled = await tryConnectClient(ctx, userId, chatId, recoveredGoals, textMessage)
@@ -151,9 +153,4 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => 
   }
 
   await sendReply(ctx, userId, textMessage, renderTemplate("client/agent-no-reply"))
-}
-
-const saveConversationTurns = async (userId, userMessage, reply) => {
-  await rag.saveConversationTurn(userId, "user", userMessage)
-  await rag.saveConversationTurn(userId, "assistant", reply)
 }

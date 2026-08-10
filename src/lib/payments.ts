@@ -2,11 +2,7 @@ import db from "./firestore.ts"
 import { fetchProvider } from "./providers.ts"
 import { renderTemplate } from "./templates.ts"
 import { sendToTopic, telegram } from "./telegram.ts"
-import {
-  createProviderCheckoutSession,
-  refundStripePayment,
-  stripe
-} from "./stripe.ts"
+import { createCheckoutSession, stripe } from "./stripe.ts"
 
 
 const { STRIPE_CURRENCY } = process.env
@@ -39,12 +35,14 @@ export const fetchPaymentById = async (paymentId) => {
 }
 
 export const createProviderPaymentRequest = async (caseRecord, provider, amountCents, description) => {
-  const session = await createProviderCheckoutSession({
+  const session = await createCheckoutSession({
     clientTelegramId: caseRecord.clientTelegramId,
     clientChatId: caseRecord.clientChatId,
     caseId: caseRecord.id,
     amountCents,
-    description
+    currency: stripeCurrency,
+    description,
+    kind: "provider_request"
   })
 
   const ref = await db.collection("payments").add({
@@ -72,17 +70,13 @@ export const createProviderPaymentRequest = async (caseRecord, provider, amountC
     descriptionLine
   })
 
-  await sendPaymentLink(caseRecord.clientChatId, clientText, session.url)
-
-  return payment
-}
-
-export const sendPaymentLink = async (chatId, message, checkoutUrl) => {
-  await telegram.sendMessage(chatId, message, {
+  await telegram.sendMessage(caseRecord.clientChatId, clientText, {
     reply_markup: {
-      inline_keyboard: [[{ text: "Pay with card", url: checkoutUrl }]]
+      inline_keyboard: [[{ text: "Pay with card", url: session.url }]]
     }
   })
+
+  return payment
 }
 
 export const completePaymentFromSession = async (session) => {
@@ -149,7 +143,13 @@ const handlePaidProviderRequest = async (payment) => {
   if (!caseDoc.exists) return
 
   const data = caseDoc.data()
-  await sendPaymentConfirmationToTopic(data.groupChatId, data.topicId, payment)
+  const descriptionSuffix = payment.description ? ` — ${payment.description}` : ""
+  await sendToTopic(
+    data.groupChatId,
+    data.topicId,
+    renderTemplate("payment/topic-paid-provider", { amountLabel, descriptionSuffix }),
+    { reply_markup: { inline_keyboard: [[{ text: "Refund", callback_data: `refund:${payment.id}` }]] } }
+  )
 }
 
 export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId, caseRecord) => {
@@ -173,7 +173,7 @@ export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId,
 
   let paymentIntentId = payment.stripePaymentIntentId
   if (!paymentIntentId) {
-    const session = await retrieveCheckoutUrl(payment.stripeSessionId)
+    const session = await stripe.checkout.sessions.retrieve(payment.stripeSessionId)
     paymentIntentId = getPaymentIntentId(session)
   }
 
@@ -181,7 +181,7 @@ export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId,
     return { toast: "This payment cannot be refunded." }
   }
 
-  await refundStripePayment(paymentIntentId)
+  await stripe.refunds.create({ payment_intent: paymentIntentId })
 
   const paymentRef = db.collection("payments").doc(paymentId)
   const updated = await db.runTransaction(async (tx) => {
@@ -206,6 +206,7 @@ export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId,
     stripePaymentIntentId: paymentIntentId
   }
   const amountLabel = formatPaymentAmount(refunded.amountCents, refunded.currency)
+  const descriptionSuffix = refunded.description ? ` — ${refunded.description}` : ""
 
   await telegram.sendMessage(
     refunded.clientChatId,
@@ -214,34 +215,9 @@ export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId,
 
   return {
     toast: "Payment refunded.",
-    editText: buildRefundedConfirmationText(refunded)
+    editText: renderTemplate("payment/topic-refunded-provider", { amountLabel, descriptionSuffix })
   }
 }
-
-const sendPaymentConfirmationToTopic = async (groupChatId, topicId, payment) => {
-  await sendToTopic(
-    groupChatId,
-    topicId,
-    buildPaidConfirmationText(payment),
-    { reply_markup: buildRefundKeyboard(payment.id) }
-  )
-}
-
-const buildPaidConfirmationText = (payment) => {
-  const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
-  const descriptionSuffix = payment.description ? ` — ${payment.description}` : ""
-  return renderTemplate("payment/topic-paid-provider", { amountLabel, descriptionSuffix })
-}
-
-const buildRefundedConfirmationText = (payment) => {
-  const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
-  const descriptionSuffix = payment.description ? ` — ${payment.description}` : ""
-  return renderTemplate("payment/topic-refunded-provider", { amountLabel, descriptionSuffix })
-}
-
-const buildRefundKeyboard = (paymentId) => ({
-  inline_keyboard: [[{ text: "Refund", callback_data: `refund:${paymentId}` }]]
-})
 
 const getPaymentIntentId = (session) => {
   const paymentIntent = session.payment_intent
@@ -249,9 +225,6 @@ const getPaymentIntentId = (session) => {
   if (typeof paymentIntent === "string") return paymentIntent
   return paymentIntent.id
 }
-
-const retrieveCheckoutUrl = async (sessionId) =>
-  stripe.checkout.sessions.retrieve(sessionId)
 
 const mapPaymentDoc = (doc) => {
   const data = doc.data()

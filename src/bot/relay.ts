@@ -1,22 +1,21 @@
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
 import {
+  acceptProviderOffer,
   closeCase,
-  deleteClosedCaseTopic,
+  declineProviderOffer,
   fetchActiveCaseInTopic,
-  fetchClosedCaseInTopic,
-  respondToProviderOffer
+  fetchClosedCaseInTopic
 } from "../lib/cases.ts"
 import { createProviderPaymentRequest, formatPaymentAmount, refundPaymentAsProvider } from "../lib/payments.ts"
 import { analyzeTelegramFileMessage } from "../lib/files.ts"
 import { relayProviderMessage } from "../lib/relay.ts"
 import {
-  formatConversationAnalysis,
   generateConversationAnalysis
 } from "../lib/conversation-analysis.ts"
 import { fetchProvider } from "../lib/providers.ts"
 import { renderTemplate } from "../lib/templates.ts"
-import { fetchBotId } from "../lib/telegram.ts"
+import { deleteForumTopic, fetchBotId } from "../lib/telegram.ts"
 
 
 const { STRIPE_CURRENCY } = process.env
@@ -59,7 +58,7 @@ bot.command("delete", async (ctx, next) => {
     return
   }
 
-  await deleteClosedCaseTopic(caseRecord)
+  await deleteForumTopic(caseRecord.groupChatId, caseRecord.topicId)
 })
 
 bot.command("pay", async (ctx, next) => {
@@ -126,7 +125,7 @@ bot.command("analyze", async (ctx, next) => {
       ctx.chat.id,
       pendingMessageId,
       undefined,
-      formatConversationAnalysis(analysis)
+      analysis.trim()
     )
   } catch (error) {
     if (pendingMessageId) {
@@ -253,7 +252,14 @@ bot.on("callback_query", async (ctx, next) => {
     return
   }
 
-  const result = await respondToProviderOffer(batchId, ctx.from.id.toString(), action)
+  let result
+  if (action === "accept") {
+    result = await acceptProviderOffer(batchId, ctx.from.id.toString())
+  } else if (action === "decline") {
+    result = await declineProviderOffer(batchId, ctx.from.id.toString())
+  } else {
+    result = { toast: "Unknown action." }
+  }
   await ctx.answerCbQuery(result.toast)
 })
 
@@ -285,14 +291,19 @@ const parsePayArgs = (text) => {
 
 const answerCbQuerySafe = async (ctx, text = null) => {
   try {
-    if (text) await ctx.answerCbQuery(text)
-    else await ctx.answerCbQuery()
+    if (text) {
+      await ctx.answerCbQuery(text)
+    } else {
+      await ctx.answerCbQuery()
+    }
     return
   } catch {
     if (!text) return
 
     const message = ctx.callbackQuery.message
     const threadId = message && "message_thread_id" in message && message.message_thread_id
-    if (threadId) await ctx.reply(text, { message_thread_id: threadId })
+    if (threadId) {
+      await ctx.reply(text, { message_thread_id: threadId })
+    }
   }
 }

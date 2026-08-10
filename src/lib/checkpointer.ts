@@ -208,6 +208,4 @@ const toUint8Array = (value) => {
 
 const checkpointer = new FirestoreSaver()
 
-export const resetAgentThread = (threadId) => checkpointer.deleteThread(threadId)
-
 export default checkpointer

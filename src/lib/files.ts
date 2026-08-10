@@ -33,11 +33,18 @@ export const analyzeTelegramFileMessage = async (message, caseRecord: CaseRecord
   try {
     const isImage = Boolean(message.photo) || fileInfo.mimeType.startsWith("image/")
     if (isImage) {
-      return await summarizeImage(savePath, fileInfo.mimeType || "image/jpeg", fileInfo.fileName, caseContext)
+      const summary = await summarizeImage(
+        savePath,
+        fileInfo.mimeType || "image/jpeg",
+        fileInfo.fileName,
+        caseContext
+      )
+      return summary
     }
 
     if (fileInfo.mimeType === "application/pdf") {
-      return await summarizePdf(savePath, fileInfo.fileName, caseContext)
+      const summary = await summarizePdf(savePath, fileInfo.fileName, caseContext)
+      return summary
     }
 
     throw new Error("Only PDF and image files can be analyzed.")

@@ -1,5 +1,5 @@
 import db from "./firestore.ts"
-import { resetAgentThread } from "./checkpointer.ts"
+import checkpointer from "./checkpointer.ts"
 import {
   areIntakeGoalsComplete,
   buildIntakeSummary,
@@ -147,9 +147,9 @@ export const closeCase = async (caseId) => {
   }
 
   try {
-    await resetAgentThread(caseRecord.clientTelegramId)
+    await checkpointer.deleteThread(caseRecord.clientTelegramId)
   } catch (error) {
-    console.error("resetAgentThread error", caseRecord.clientTelegramId, error.message)
+    console.error("deleteThread error", caseRecord.clientTelegramId, error.message)
   }
 
   await sendToTopic(
@@ -167,10 +167,6 @@ export const closeCase = async (caseId) => {
   return caseRecord
 }
 
-export const deleteClosedCaseTopic = async (caseRecord) => {
-  await deleteForumTopic(caseRecord.groupChatId, caseRecord.topicId)
-}
-
 export const escalateToProvider = async (clientTelegramId, clientChatId, userGoals) => {
   const existing = await fetchActiveCase(clientTelegramId)
   if (existing) {
@@ -185,17 +181,6 @@ export const escalateToProvider = async (clientTelegramId, clientChatId, userGoa
   }
 
   return startProviderOfferBatch(clientTelegramId, clientChatId, userGoals)
-}
-
-export const respondToProviderOffer = async (batchId, providerTelegramUserId, action) => {
-  switch (action) {
-    case "accept":
-      return acceptProviderOffer(batchId, providerTelegramUserId)
-    case "decline":
-      return declineProviderOffer(batchId, providerTelegramUserId)
-    default:
-      return { toast: "Unknown action." }
-  }
 }
 
 const startProviderOfferBatch = async (clientTelegramId, clientChatId, userGoals) => {
@@ -264,7 +249,7 @@ const startProviderOfferBatch = async (clientTelegramId, clientChatId, userGoals
   return renderTemplate("client/waiting-for-provider")
 }
 
-const acceptProviderOffer = async (batchId, providerTelegramUserId) => {
+export const acceptProviderOffer = async (batchId, providerTelegramUserId) => {
   const provider = await fetchProviderByTelegramUserId(providerTelegramUserId)
   if (!provider || !provider.botStartedAt) {
     return { toast: renderTemplate("bot/not-onboarded") }
@@ -321,7 +306,7 @@ const acceptProviderOffer = async (batchId, providerTelegramUserId) => {
   return { toast: "Case accepted." }
 }
 
-const declineProviderOffer = async (batchId, providerTelegramUserId) => {
+export const declineProviderOffer = async (batchId, providerTelegramUserId) => {
   const provider = await fetchProviderByTelegramUserId(providerTelegramUserId)
   if (!provider) {
     return { toast: renderTemplate("bot/not-registered") }

@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "fs"
 import path from "path"
-import { PromptTemplate } from "@langchain/core/prompts"
 
 
 const { TEMPLATE_FOLDER } = process.env
@@ -45,8 +44,3 @@ export const renderTemplate = (name, vars = {}) => {
 }
 
 export const LEGAL_DISCLAIMER = renderTemplate("shared/legal-disclaimer")
-
-export const formatPromptTemplate = async (name, vars = {}) => {
-  const template = PromptTemplate.fromTemplate(loadTemplate(name))
-  return template.format(vars)
-}

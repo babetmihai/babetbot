@@ -17,9 +17,6 @@ const llm = new ChatOpenAI({
   temperature: 0.5
 })
 
-export const formatConversationAnalysis = (analysis) => {
-  return analysis.trim()
-}
 
 export const generateConversationAnalysis = async (caseRecord) => {
   const { background, thread } = await buildCaseContext(caseRecord)

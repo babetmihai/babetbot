@@ -1,10 +1,13 @@
 import express from "express"
 import bot from "./bot/index.ts"
 import { completePaymentFromSession } from "./lib/payments.ts"
-import { verifyStripeWebhook } from "./lib/stripe.ts"
+import { stripe } from "./lib/stripe.ts"
 
 
-const { TELEGRAM_SECRET_TOKEN } = process.env
+const {
+  TELEGRAM_SECRET_TOKEN,
+  STRIPE_WEBHOOK_SECRET
+} = process.env
 
 export const BOT_WEBHOOK_PATH = "/bot/webhook"
 export const STRIPE_WEBHOOK_PATH = "/stripe/webhook"
@@ -18,7 +21,11 @@ app.post(STRIPE_WEBHOOK_PATH, express.raw({ type: "application/json" }), async (
   }
 
   try {
-    const event = verifyStripeWebhook(getWebhookPayload(req), signature)
+    const event = stripe.webhooks.constructEvent(
+      getWebhookPayload(req),
+      signature,
+      STRIPE_WEBHOOK_SECRET
+    )
 
     if (event.type === "checkout.session.completed") {
       await completePaymentFromSession(event.data.object)

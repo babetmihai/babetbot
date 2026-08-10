@@ -77,29 +77,14 @@ export const getRequiredIntakeGoals = (userGoals) =>
 export const getMissingGoals = (userGoals) =>
   getCollectGoals(userGoals).filter((goal) => !trimmedGoalValue(goal))
 
-export const getNextGoalToCollect = (userGoals) =>
-  getMissingGoals(userGoals)[0] ?? null
-
-export const isConsentGiven = (value) => {
-  const normalized = (value || "").trim().toLowerCase()
-  return normalized === CONSENT_YES_VALUE
-}
-
-export const getGoalByKey = (userGoals, key) =>
-  userGoals.find((goal) => goal.key === key)
-
-export const getGoalValue = (userGoals, key) => {
-  const { value } = getGoalByKey(userGoals, key) || {}
-  return (value || "").trim()
-}
-
 export const areIntakeGoalsComplete = (userGoals, requiredKeys) =>
   requiredKeys.every((key) => {
-    const value = getGoalValue(userGoals, key)
-    if (!value) return false
+    const { value } = userGoals.find((goal) => goal.key === key) || {}
+    const trimmed = (value || "").trim()
+    if (!trimmed) return false
     if (key === "consent") {
-      if (isDeclinedGoalValue(value)) return false
-      return isConsentGiven(value)
+      if (isDeclinedGoalValue(trimmed)) return false
+      return trimmed.toLowerCase() === CONSENT_YES_VALUE
     }
     return true
   })
@@ -119,10 +104,6 @@ export const validateGoalValue = (goalKey, value) => {
     if (["yes", "y", "agree", "i agree", "accepted", "accept"].includes(lower)) return CONSENT_YES_VALUE
     if (["no", "n", "decline", "declined", "disagree", "i do not agree"].includes(lower)) return DECLINED_GOAL_VALUE
     return null
-  }
-
-  if (goalKey === "description") {
-    if (!isSubstantiveDescription(trimmed)) return null
   }
 
   return trimmed
@@ -194,15 +175,13 @@ export const createUpdateUserGoalTool = () => tool(async ({ goalKey, value }, co
       if (goalKey === "consent") {
         return loadTemplate("agent/consent-validation-hint").trim()
       }
-      if (goalKey === "description") {
-        return `Could not save "${definition.label}" — the client should describe this in their own words.`
-      }
       return `Could not save "${definition.label}" from that value. Ask the client again.`
     }
 
     await setUserGoalValue(userId, goalKey, normalized, definition)
     if ((definition.goalType || "collect") === "collect") {
-      await syncDerivedGoals(userId, await mergeUserGoals(userId), config.context.userMessage)
+      const updatedGoals = await mergeUserGoals(userId)
+      await syncDerivedGoals(userId, updatedGoals, config.context.userMessage)
     }
 
     return `Saved user goal "${definition.label}": "${value}"`
@@ -220,30 +199,6 @@ export const createUpdateUserGoalTool = () => tool(async ({ goalKey, value }, co
 })
 
 const trimmedGoalValue = (goal) => (goal.value || "").trim()
-
-const GENERIC_DESCRIPTION_PATTERNS = [
-  /^i am a customer\.?$/i,
-  /^i'm a customer\.?$/i,
-  /^as a customer\.?$/i,
-  /^a customer\.?$/i,
-  /^i am a client\.?$/i,
-  /^i'm a client\.?$/i,
-  /^as a client\.?$/i,
-  /^a client\.?$/i,
-  /^hello\.?$/i,
-  /^hi\.?$/i
-]
-
-const isSubstantiveDescription = (value) => {
-  if (value.length < 15) return false
-
-  const words = value.split(/\s+/).filter(Boolean)
-  if (words.length < 3) return false
-
-  const lower = value.toLowerCase()
-  const isGeneric = GENERIC_DESCRIPTION_PATTERNS.some((pattern) => pattern.test(lower))
-  return !isGeneric
-}
 
 const buildGoalRagContent = (goal, value) =>
   isDeclinedGoalValue(value)

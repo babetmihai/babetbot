@@ -2,17 +2,9 @@ import Stripe from "stripe"
 import { fetchBotUsername } from "./telegram.ts"
 
 
-const {
-  STRIPE_SECRET_KEY,
-  STRIPE_WEBHOOK_SECRET,
-  STRIPE_CURRENCY
-} = process.env
-const stripeCurrency = STRIPE_CURRENCY.toLowerCase()
+const { STRIPE_SECRET_KEY } = process.env
 
 export const stripe = new Stripe(STRIPE_SECRET_KEY)
-
-export const verifyStripeWebhook = (rawBody, signature) =>
-  stripe.webhooks.constructEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET)
 
 const stripeWebhookEvents: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = ["checkout.session.completed"]
 
@@ -84,23 +76,3 @@ export const createCheckoutSession = async ({
     cancel_url: botUrl
   })
 }
-
-export const refundStripePayment = async (paymentIntentId) =>
-  stripe.refunds.create({ payment_intent: paymentIntentId })
-
-export const createProviderCheckoutSession = async ({
-  clientTelegramId,
-  clientChatId,
-  caseId,
-  amountCents,
-  description
-}) =>
-  createCheckoutSession({
-    clientTelegramId,
-    clientChatId,
-    caseId,
-    amountCents,
-    currency: stripeCurrency,
-    description,
-    kind: "provider_request"
-  })

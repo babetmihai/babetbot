@@ -32,5 +32,7 @@ export const deleteQueryDocs = async (query) => {
     }
   }
 
-  if (count > 0) await batch.commit()
+  if (count > 0) {
+    await batch.commit()
+  }
 }

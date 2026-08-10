@@ -6,10 +6,13 @@ import { message } from "telegraf/filters"
 import { fetchActiveCase } from "../lib/cases.ts"
 import { relayClientFile } from "../lib/relay.ts"
 import { renderTemplate } from "../lib/templates.ts"
-import rag from "../lib/rag.ts"
+import rag, { KB_SCOPE, PROMPT_TYPES } from "../lib/rag.ts"
 
 
-const { ADMIN_TELEGRAM_IDS } = process.env
+const {
+  ADMIN_TELEGRAM_IDS,
+  KB_USER_ID
+} = process.env
 const adminTelegramIds = ADMIN_TELEGRAM_IDS
   .split(",")
   .map((id) => id.trim())
@@ -45,7 +48,11 @@ bot.on(message("document"), async (ctx) => {
         writer.on("error", reject)
       })
 
-      await rag.ingestFirmPdf(savePath)
+      await rag.ingestPdf(KB_USER_ID, "firm", savePath, {
+        scope: KB_SCOPE.firm,
+        type: PROMPT_TYPES.note
+      })
+
       await fs.unlinkSync(savePath)
 
       await ctx.reply(`Added to firm knowledge base: ${fileName}`)

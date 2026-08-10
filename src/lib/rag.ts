@@ -85,13 +85,6 @@ const rag = {
     await addDocuments(chunks)
   },
 
-  ingestFirmPdf: async (filePath) => {
-    await rag.ingestPdf(KB_USER_ID, "firm", filePath, {
-      scope: KB_SCOPE.firm,
-      type: PROMPT_TYPES.note
-    })
-  },
-
   add: async (userId, message, role = "user", metadata = {}) => {
     const doc = new Document({
       pageContent: message,
@@ -177,7 +170,9 @@ const addDocuments = async (docs) => {
     }
   }
 
-  if (count > 0) await batch.commit()
+  if (count > 0) {
+    await batch.commit()
+  }
 }
 
 const toRagRow = (data) => ({

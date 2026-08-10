@@ -16,11 +16,12 @@ Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI. E
 3. **Direct code** — assume valid inputs and required env (throw at startup, not silent defaults). No defensive `?.`/`??` fallbacks for data that should exist. `try/catch` only when the caller must recover; catch variable `error`; use `error.message` (no `instanceof` checks); one try/catch per recoverable step.
 4. **Single init source** — one documented way per value; no `a || b || c` env/config chains. Read `process.env` immediately after the last import (two blank lines below), no central env re-exports, no hardcoded defaults. Multi-var: multiline destructure, not inline. Function base URL is built from region + `FIREBASE_PROJECT_ID` + function name.
 5. **Few layers** — inline logic used once; no thin wrappers or rename aliases. Extract helpers only at 2+ uses. Prefer lodash (`import _ from "lodash"`) at the call site for transforms (`keyBy`, `find`, `merge`, etc.) over one-off helpers.
+   - **Never again:** do not invent helpers that only rename, trim, template-wrap, or forward to one other call (`formatConversationAnalysis` → `text.trim()` was the anti-pattern). If the body is 1–3 trivial lines and has one call site, keep it at the call site. Dead exports of that kind get deleted, not “kept for later.”
 
 ## Code style
 
 - **Format:** no semicolons or trailing commas; double quotes; 2-space indent; `{ key: value }`; max 140 cols.
-- **Async:** `await` on its own line before `if`/branching — never inside condition expressions.
+- **Async:** never inline `await`. Own statement only — not inside `if (...)`, call args, ternaries, `return await`, or `if (x) await y`. Assign first, then branch/call/return.
 - **Conditionals:** named booleans; no nested ternaries; simple ternary for two values OK; `switch (true)` for query routing; use `if` for imperative steps.
 - **Access:** typed SDKs (Telegraf `ctx`, LangChain) — direct dot access, no root destructure. Untyped project data (rows, case records, parsed args) — `const { field } = obj || {}`, not chained `?.`.
 - **Types:** infer; omit param/return annotations (`strict: false`). New project types/interfaces/enums: `T` prefix (`TAgentRuntime`). Existing exports (`CaseRecord`, `UserGoal`) stay. Domain types at top of `lib/<domain>.ts` — no `*-types.ts` folders. Type `unknown` SDK callbacks on the parameter, not inline casts.

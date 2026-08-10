@@ -43,10 +43,8 @@ const memoryMiddleware = createMiddleware({
     return { userGoals }
   },
   wrapModelCall: async (request, handler) => {
-    const { userId, userMessage } = getAgentContext(request.runtime)
-    const userGoals = userId
-      ? await refreshUserGoals(userId, userMessage)
-      : request.state.userGoals
+    const { userId, userMessage } = request.runtime.context
+    const userGoals = await refreshUserGoals(userId, userMessage)
 
     return handler({
       ...request,
@@ -59,15 +57,6 @@ const memoryMiddleware = createMiddleware({
 })
 
 export default memoryMiddleware
-
-const getAgentContext = (runtime) => {
-  const { context, configurable } = runtime || {}
-  const { userId, userMessage } = context || {}
-  return {
-    userId: userId || configurable?.thread_id,
-    userMessage
-  }
-}
 
 const refreshUserGoals = async (userId, latestMessage = "") => {
   if (!userId) return []

@@ -43,7 +43,7 @@ bot.command("join", async (ctx) => {
 
   if (!("text" in ctx.message)) return
 
-  const name = parseJoinArgs(ctx.message.text)
+  const name = ctx.message.text.replace(/^\/join(@\w+)?\s*/i, "").trim()
   if (!name) {
     await ctx.reply("Usage: /join Your Name")
     return
@@ -69,9 +69,3 @@ bot.use(textBot)
 bot.use(uploadBot)
 
 export default bot
-
-const parseJoinArgs = (text) => {
-  const body = text.replace(/^\/join(@\w+)?\s*/i, "").trim()
-  if (!body) return null
-  return body
-}
