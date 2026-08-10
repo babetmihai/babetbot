@@ -27,6 +27,7 @@ import {
 
 export type CaseRecord = {
   id: string
+  number: number
   clientTelegramId: string
   clientChatId: number
   providerId: string
@@ -154,7 +155,7 @@ export const closeCase = async (caseId) => {
     caseRecord.topicId,
     renderTemplate("provider/case-closed-topic")
   )
-  await editForumTopic(caseRecord.groupChatId, caseRecord.topicId, buildCaseTopicName(caseRecord.id, true))
+  await editForumTopic(caseRecord.groupChatId, caseRecord.topicId, buildCaseTopicName(caseRecord.number, true))
 
   const isSupergroupForum = caseRecord.groupChatId < 0
   if (isSupergroupForum) {
@@ -374,16 +375,24 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
   const intakeSummary = buildIntakeSummary(userGoals)
   const caseRef = db.collection("cases").doc()
 
-  const racedCase = await db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const active = await tx.get(
       db.collection("cases")
         .where("clientTelegramId", "==", clientTelegramId)
         .where("status", "==", "active")
         .limit(1)
     )
-    if (!active.empty) return mapCaseDoc(active.docs[0])
+    if (!active.empty) {
+      return { raced: true, caseRecord: mapCaseDoc(active.docs[0]) }
+    }
 
+    const counterRef = db.collection("counters").doc("cases")
+    const counterDoc = await tx.get(counterRef)
+    const nextNumber = counterDoc.exists ? counterDoc.data().next : 1
+
+    tx.set(counterRef, { next: nextNumber + 1 })
     tx.set(caseRef, {
+      number: nextNumber,
       clientTelegramId,
       clientChatId,
       providerId: provider.id,
@@ -394,20 +403,21 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
       createdAt: new Date().toISOString(),
       closedAt: null
     })
-    return null
+    return { raced: false, number: nextNumber }
   })
 
-  if (racedCase) {
+  if (result.raced) {
     const { linkIntakePaymentToCase } = await import("./payments.js")
-    await linkIntakePaymentToCase(clientTelegramId, racedCase.id)
+    await linkIntakePaymentToCase(clientTelegramId, result.caseRecord.id)
     return {
-      caseRecord: racedCase,
+      caseRecord: result.caseRecord,
       clientMessage: buildConnectedClientMessage(provider)
     }
   }
 
   const caseRecord = {
     id: caseRef.id,
+    number: result.number,
     clientTelegramId,
     clientChatId,
     providerId: provider.id,
@@ -417,7 +427,7 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
     intakeSummary
   }
 
-  await editForumTopic(providerChatId, topicId, buildCaseTopicName(caseRecord.id))
+  await editForumTopic(providerChatId, topicId, buildCaseTopicName(caseRecord.number))
   await sendToTopic(providerChatId, topicId, intakeSummary)
   await sendToTopic(providerChatId, topicId, renderTemplate("provider/topic-opening"))
 
@@ -427,6 +437,7 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
 
   console.log("[cases] accepted", {
     caseId: caseRecord.id,
+    caseNumber: caseRecord.number,
     clientTelegramId,
     provider: provider.name,
     topicId,
@@ -477,15 +488,16 @@ const buildConnectedClientMessage = (provider) =>
 const buildProviderOfferText = (userGoals) =>
   renderTemplate("provider/offer", { intakeSummary: buildIntakeSummary(userGoals) })
 
-const buildCaseTopicName = (caseId, closed = false) => {
+const buildCaseTopicName = (caseNumber, closed = false) => {
   const prefix = closed ? "Closed — " : ""
-  return `${prefix}Case #${caseId}`
+  return `${prefix}Case #${caseNumber}`
 }
 
 const mapCaseDoc = (doc) => {
   const data = doc.data()
   return {
     id: doc.id,
+    number: data.number,
     clientTelegramId: data.clientTelegramId,
     clientChatId: data.clientChatId,
     providerId: data.providerId,

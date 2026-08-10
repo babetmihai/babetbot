@@ -28,13 +28,7 @@ const rag = {
       distanceMeasure: "COSINE"
     }).get()
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data()
-      return {
-        pageContent: data.content ?? "",
-        metadata: data.metadata ?? {}
-      }
-    })
+    return snapshot.docs.map((doc) => toRagRow(doc.data()))
   },
 
   listForIntake: async (clientUserId, query, count = 6) => {
@@ -107,13 +101,7 @@ const rag = {
       .limit(count)
       .get()
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data()
-      return {
-        pageContent: data.content ?? "",
-        metadata: data.metadata ?? {}
-      }
-    })
+    return snapshot.docs.map((doc) => toRagRow(doc.data()))
   },
 
   saveConversationTurn: async (userId, role, content) => {
@@ -155,13 +143,13 @@ const addDocuments = async (docs) => {
     batch.set(ref, {
       content: docs[i].pageContent,
       embedding: FieldValue.vector(vectors[i]),
-      metadata,
       user_id: metadata.user_id,
       scope: metadata.scope ?? null,
       type: metadata.type ?? null,
       goal_key: metadata.goal_key ?? null,
       role: metadata.role ?? null,
       source: metadata.source ?? null,
+      topic: metadata.topic ?? null,
       created_at: metadata.created_at ?? new Date().toISOString()
     })
     count += 1
@@ -175,6 +163,20 @@ const addDocuments = async (docs) => {
 
   if (count > 0) await batch.commit()
 }
+
+const toRagRow = (data) => ({
+  pageContent: data.content ?? "",
+  metadata: data.metadata ?? {
+    user_id: data.user_id,
+    scope: data.scope,
+    type: data.type,
+    goal_key: data.goal_key,
+    role: data.role,
+    source: data.source,
+    topic: data.topic,
+    created_at: data.created_at
+  }
+})
 
 const dedupeResults = (results) => {
   const seen = new Set()

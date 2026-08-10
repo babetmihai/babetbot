@@ -9,6 +9,7 @@
   "scripts": {
     "start": "tsx watch src/index.ts",
     "stripe": "stripe listen --forward-to localhost:8080/stripe/webhook --events checkout.session.completed",
+    "migrate:documents-metadata": "tsx scripts/migrate-documents-metadata.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
