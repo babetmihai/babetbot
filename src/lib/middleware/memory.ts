@@ -10,8 +10,7 @@ import {
   syncDerivedGoals
 } from "../goals.js"
 import { type TAgentRuntime } from "../agent.js"
-import { INTAKE_FEE_AMOUNT_CENTS, STRIPE_CURRENCY } from "../../config.js"
-import { loadTemplate, renderTemplate } from "../templates.js"
+import { loadTemplate } from "../templates.js"
 
 const GOAL_COLLECTION_RULES = loadTemplate("agent/goal-collection-rules").trim()
 
@@ -21,7 +20,9 @@ const UserGoalSchema = z.object({
   description: z.string(),
   prompt: z.string().nullable().optional(),
   value: z.string().nullable().default(null),
-  priority: z.number().optional()
+  priority: z.number().optional(),
+  goalType: z.string().optional(),
+  targetGoalKey: z.string().nullable().optional()
 })
 
 const stateSchema = z.object({
@@ -74,7 +75,10 @@ const formatUserGoalsPrompt = (userGoals) => {
   const intakeComplete = areIntakeGoalsComplete(userGoals, requiredKeys)
 
   let guidance = `\n\n## Intake goals\n${GOAL_COLLECTION_RULES}\n`
-  guidance += "Practice area is inferred from description — do not ask the client for it.\n"
+  for (const goal of userGoals.filter((item) => item.goalType === "derive")) {
+    const source = goal.targetGoalKey || "related intake"
+    guidance += `${goal.label} is inferred from ${source} — do not ask the client for it.\n`
+  }
 
   if (known) guidance += `Saved: ${known}\n`
   if (missing.length) {
@@ -83,11 +87,6 @@ const formatUserGoalsPrompt = (userGoals) => {
       guidance += `- ${goal.key} (${goal.label}): ${goal.description}`
       if (goal.prompt) guidance += ` Suggested wording: "${goal.prompt}"`
       guidance += "\n"
-    }
-    const consentMissing = missing.some((goal) => goal.key === "consent")
-    if (consentMissing) {
-      const amountLabel = `${(INTAKE_FEE_AMOUNT_CENTS / 100).toFixed(2)} ${STRIPE_CURRENCY.toUpperCase()}`
-      guidance += renderTemplate("agent/consent-fee-guidance", { amountLabel })
     }
   }
   if (intakeComplete) {

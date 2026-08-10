@@ -1,0 +1,26 @@
+[
+  {
+    "key": "description",
+    "label": "Situation description",
+    "description": "A brief description of their situation or what they need help with.",
+    "goalType": "collect",
+    "targetGoalKey": null,
+    "priority": 10
+  },
+  {
+    "key": "consent",
+    "label": "Consent",
+    "description": "Whether the client agrees to share their intake information with an assigned provider.",
+    "goalType": "collect",
+    "targetGoalKey": null,
+    "priority": 20
+  },
+  {
+    "key": "practice_area",
+    "label": "Focus area",
+    "description": "The focus area, inferred from the client's description.",
+    "goalType": "derive",
+    "targetGoalKey": "description",
+    "priority": 30
+  }
+]

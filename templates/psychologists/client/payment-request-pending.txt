@@ -1,3 +1,0 @@
-Your intake is complete. We are still waiting for your intake fee payment.
-To connect with a psychologist, please pay the intake fee of {amountLabel}.
-Use the button below to pay securely with card.

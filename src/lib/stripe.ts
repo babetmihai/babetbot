@@ -1,6 +1,5 @@
 import Stripe from "stripe"
 import {
-  INTAKE_FEE_AMOUNT_CENTS,
   STRIPE_CURRENCY,
   STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET
@@ -82,17 +81,6 @@ export const createCheckoutSession = async ({
     cancel_url: botUrl
   })
 }
-
-export const createIntakeCheckoutSession = async (clientTelegramId, clientChatId) =>
-  createCheckoutSession({
-    clientTelegramId,
-    clientChatId,
-    caseId: null,
-    amountCents: INTAKE_FEE_AMOUNT_CENTS,
-    currency: STRIPE_CURRENCY,
-    description: "Intake fee",
-    kind: "intake_fee"
-  })
 
 export const refundStripePayment = async (paymentIntentId) =>
   stripe.refunds.create({ payment_intent: paymentIntentId })

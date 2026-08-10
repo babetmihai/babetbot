@@ -14,14 +14,6 @@ import {
   isReadyForEscalation,
   notifyIntakeProviderBlocked
 } from "../lib/cases.js"
-import {
-  fetchPaidIntakeFee,
-  fetchPendingIntakePayment,
-  formatPaymentAmount,
-  requestIntakePayment,
-  sendPaymentLink
-} from "../lib/payments.js"
-import { STRIPE_CURRENCY } from "../config.js"
 import { relayClientMessage } from "../lib/relay.js"
 import { renderTemplate } from "../lib/templates.js"
 import {
@@ -96,21 +88,8 @@ const tryConnectClient = async (ctx, userId, chatId, userGoals, userMessage) => 
     return true
   }
 
-  const paidIntakeFee = await fetchPaidIntakeFee(userId)
-  if (paidIntakeFee) {
-    const clientMessage = await escalateToProvider(userId, chatId, userGoals)
-    await sendReply(ctx, userId, userMessage, clientMessage)
-    return true
-  }
-
-  const hadPendingPayment = await fetchPendingIntakePayment(userId)
-  const { payment, checkoutUrl } = await requestIntakePayment(userId, chatId)
-  const amountLabel = formatPaymentAmount(payment.amountCents, STRIPE_CURRENCY)
-  const paymentTemplate = hadPendingPayment ? "client/payment-request-pending" : "client/payment-request"
-  const paymentMessage = renderTemplate(paymentTemplate, { amountLabel })
-
-  await sendPaymentLink(chatId, paymentMessage, checkoutUrl)
-  void saveConversationTurns(userId, userMessage, paymentMessage)
+  const clientMessage = await escalateToProvider(userId, chatId, userGoals)
+  await sendReply(ctx, userId, userMessage, clientMessage)
   return true
 }
 

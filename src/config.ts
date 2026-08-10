@@ -18,12 +18,7 @@ export const FIREBASE_PROJECT_ID = requiredEnv("FIREBASE_PROJECT_ID")
 export const STRIPE_SECRET_KEY = requiredEnv("STRIPE_SECRET_KEY")
 export const STRIPE_WEBHOOK_SECRET = requiredEnv("STRIPE_WEBHOOK_SECRET")
 export const STRIPE_DEV = process.env.STRIPE_DEV === "1"
-export const INTAKE_FEE_AMOUNT_CENTS = Number(requiredEnv("INTAKE_FEE_AMOUNT_CENTS"))
 export const STRIPE_CURRENCY = (process.env.STRIPE_CURRENCY || "ron").toLowerCase()
-
-if (Number.isNaN(INTAKE_FEE_AMOUNT_CENTS) || INTAKE_FEE_AMOUNT_CENTS <= 0) {
-  throw new Error("INTAKE_FEE_AMOUNT_CENTS must be a positive number")
-}
 
 export const KB_USER_ID = requiredEnv("KB_USER_ID")
 

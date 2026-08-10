@@ -1,0 +1,26 @@
+[
+  {
+    "key": "description",
+    "label": "Legal matter",
+    "description": "A brief description of the client's legal matter or what they need help with.",
+    "goalType": "collect",
+    "targetGoalKey": null,
+    "priority": 10
+  },
+  {
+    "key": "consent",
+    "label": "Consent",
+    "description": "Whether the client agrees to share their intake information with an assigned lawyer.",
+    "goalType": "collect",
+    "targetGoalKey": null,
+    "priority": 20
+  },
+  {
+    "key": "practice_area",
+    "label": "Practice area",
+    "description": "The legal practice area, inferred from the client's description.",
+    "goalType": "derive",
+    "targetGoalKey": "description",
+    "priority": 30
+  }
+]

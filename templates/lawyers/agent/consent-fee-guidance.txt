@@ -1,1 +1,0 @@
-When asking for consent, tell the client they must pay the intake fee ({amountLabel}) before being connected with a lawyer.

@@ -1,0 +1,26 @@
+[
+  {
+    "key": "description",
+    "label": "Reason for seeking support",
+    "description": "A brief description of why the client is seeking psychological support.",
+    "goalType": "collect",
+    "targetGoalKey": null,
+    "priority": 10
+  },
+  {
+    "key": "consent",
+    "label": "Consent",
+    "description": "Whether the client agrees to share their intake information with an assigned psychologist.",
+    "goalType": "collect",
+    "targetGoalKey": null,
+    "priority": 20
+  },
+  {
+    "key": "practice_area",
+    "label": "Specialty area",
+    "description": "The specialty area, inferred from the client's description.",
+    "goalType": "derive",
+    "targetGoalKey": "description",
+    "priority": 30
+  }
+]

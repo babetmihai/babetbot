@@ -407,8 +407,6 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
   })
 
   if (result.raced) {
-    const { linkIntakePaymentToCase } = await import("./payments.js")
-    await linkIntakePaymentToCase(clientTelegramId, result.caseRecord.id)
     return {
       caseRecord: result.caseRecord,
       clientMessage: buildConnectedClientMessage(provider)
@@ -430,10 +428,6 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
   await editForumTopic(providerChatId, topicId, buildCaseTopicName(caseRecord.number))
   await sendToTopic(providerChatId, topicId, intakeSummary)
   await sendToTopic(providerChatId, topicId, renderTemplate("provider/topic-opening"))
-
-  const { linkIntakePaymentToCase, notifyPaidIntakeFeeInTopic } = await import("./payments.js")
-  await notifyPaidIntakeFeeInTopic(caseRecord)
-  await linkIntakePaymentToCase(clientTelegramId, caseRecord.id)
 
   console.log("[cases] accepted", {
     caseId: caseRecord.id,

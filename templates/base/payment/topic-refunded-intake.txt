@@ -1,1 +1,0 @@
-↩ Refunded {amountLabel} (intake fee).

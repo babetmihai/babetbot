@@ -1,0 +1,2 @@
+Infer a short psychology specialty label (2-4 words) for the concern described.
+Reply with only the label, e.g. Anxiety, Relationship counseling, Trauma, Child psychology.

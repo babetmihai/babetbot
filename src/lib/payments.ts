@@ -1,12 +1,9 @@
 import db from "./firestore.js"
-import { INTAKE_FEE_AMOUNT_CENTS, STRIPE_CURRENCY } from "../config.js"
-import { escalateToProvider, fetchActiveCase } from "./cases.js"
-import { mergeUserGoals } from "./goals.js"
+import { STRIPE_CURRENCY } from "../config.js"
 import { fetchProvider } from "./providers.js"
 import { renderTemplate } from "./templates.js"
 import { sendToTopic, telegram } from "./telegram.js"
 import {
-  createIntakeCheckoutSession,
   createProviderCheckoutSession,
   refundStripePayment,
   stripe
@@ -23,7 +20,7 @@ export type PaymentRecord = {
   amountCents: number
   currency: string
   status: "pending" | "paid" | "refunded"
-  kind: "intake_fee" | "provider_request"
+  kind: "provider_request"
   description: string
 }
 
@@ -33,80 +30,10 @@ export const formatPaymentAmount = (amountCents, currency) => {
   return `${major} ${currency.toUpperCase()}`
 }
 
-export const fetchPaidIntakeFee = async (clientTelegramId) => {
-  const snapshot = await db.collection("payments")
-    .where("clientTelegramId", "==", clientTelegramId)
-    .where("kind", "==", "intake_fee")
-    .where("status", "==", "paid")
-    .where("caseId", "==", null)
-    .orderBy("paidAt", "desc")
-    .limit(1)
-    .get()
-
-  if (snapshot.empty) return null
-  return mapPaymentDoc(snapshot.docs[0])
-}
-
-export const linkIntakePaymentToCase = async (clientTelegramId, caseId) => {
-  const snapshot = await db.collection("payments")
-    .where("clientTelegramId", "==", clientTelegramId)
-    .where("kind", "==", "intake_fee")
-    .where("status", "==", "paid")
-    .where("caseId", "==", null)
-    .get()
-
-  for (const doc of snapshot.docs) {
-    await doc.ref.update({ caseId })
-  }
-}
-
-export const fetchPendingIntakePayment = async (clientTelegramId) => {
-  const snapshot = await db.collection("payments")
-    .where("clientTelegramId", "==", clientTelegramId)
-    .where("kind", "==", "intake_fee")
-    .where("status", "==", "pending")
-    .orderBy("createdAt", "desc")
-    .limit(1)
-    .get()
-
-  if (snapshot.empty) return null
-  return mapPaymentDoc(snapshot.docs[0])
-}
-
 export const fetchPaymentById = async (paymentId) => {
   const doc = await db.collection("payments").doc(paymentId).get()
   if (!doc.exists) return null
   return mapPaymentDoc(doc)
-}
-
-export const requestIntakePayment = async (clientTelegramId, clientChatId) => {
-  const pending = await fetchPendingIntakePayment(clientTelegramId)
-  if (pending) {
-    const session = await retrieveCheckoutUrl(pending.stripeSessionId)
-    if (session.url) {
-      return { payment: pending, checkoutUrl: session.url }
-    }
-  }
-
-  const session = await createIntakeCheckoutSession(clientTelegramId, clientChatId)
-  const ref = await db.collection("payments").add({
-    clientTelegramId,
-    clientChatId,
-    caseId: null,
-    stripeSessionId: session.id,
-    stripePaymentIntentId: null,
-    amountCents: INTAKE_FEE_AMOUNT_CENTS,
-    currency: STRIPE_CURRENCY,
-    status: "pending",
-    kind: "intake_fee",
-    description: "Intake fee",
-    createdAt: new Date().toISOString(),
-    paidAt: null,
-    refundedAt: null
-  })
-
-  const payment = await fetchPaymentById(ref.id)
-  return { payment, checkoutUrl: session.url }
 }
 
 export const createProviderPaymentRequest = async (caseRecord, provider, amountCents, description) => {
@@ -167,13 +94,7 @@ export const completePaymentFromSession = async (session) => {
   const existingDoc = snapshot.docs[0]
   let payment = mapPaymentDoc(existingDoc)
 
-  if (existingDoc.data().status === "paid") {
-    if (payment.kind === "intake_fee") {
-      await handlePaidIntakeFee(payment)
-    }
-    return payment
-  }
-
+  if (existingDoc.data().status === "paid") return payment
   if (existingDoc.data().status === "refunded") return payment
 
   const paymentIntentId = getPaymentIntentId(session)
@@ -196,10 +117,6 @@ export const completePaymentFromSession = async (session) => {
   if (!updated) {
     const refetched = await fetchPaymentById(existingDoc.id)
     if (!refetched || refetched.status !== "paid") return null
-
-    if (refetched.kind === "intake_fee") {
-      await handlePaidIntakeFee(refetched)
-    }
     return refetched
   }
 
@@ -209,42 +126,11 @@ export const completePaymentFromSession = async (session) => {
     stripePaymentIntentId: paymentIntentId
   }
 
-  if (payment.kind === "intake_fee") {
-    await handlePaidIntakeFee(payment)
-  }
-
   if (payment.kind === "provider_request") {
     await handlePaidProviderRequest(payment)
   }
 
   return payment
-}
-
-const handlePaidIntakeFee = async (payment) => {
-  const activeCase = await fetchActiveCase(payment.clientTelegramId)
-  if (activeCase) return
-
-  const userGoals = await mergeUserGoals(payment.clientTelegramId)
-
-  try {
-    const clientMessage = await escalateToProvider(
-      payment.clientTelegramId,
-      payment.clientChatId,
-      userGoals
-    )
-
-    const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
-    await telegram.sendMessage(
-      payment.clientChatId,
-      renderTemplate("payment/received-with-message", { amountLabel, clientMessage })
-    )
-  } catch (error) {
-    const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
-    await telegram.sendMessage(
-      payment.clientChatId,
-      renderTemplate("payment/received-with-error", { amountLabel, errorMessage: error.message })
-    )
-  }
 }
 
 const handlePaidProviderRequest = async (payment) => {
@@ -264,20 +150,13 @@ const handlePaidProviderRequest = async (payment) => {
   await sendPaymentConfirmationToTopic(data.groupChatId, data.topicId, payment)
 }
 
-export const notifyPaidIntakeFeeInTopic = async (caseRecord) => {
-  const payment = await fetchPaidIntakeFee(caseRecord.clientTelegramId)
-  if (!payment) return
-
-  await sendPaymentConfirmationToTopic(caseRecord.groupChatId, caseRecord.topicId, payment)
-}
-
 export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId, caseRecord) => {
   const payment = await fetchPaymentById(paymentId)
   if (!payment) return { toast: "Payment not found." }
 
   const isClientPayment = payment.clientTelegramId === caseRecord.clientTelegramId
   const isCasePayment = payment.caseId === caseRecord.id
-  if (!isClientPayment || (payment.kind === "provider_request" && !isCasePayment)) {
+  if (!isClientPayment || !isCasePayment) {
     return { toast: "This payment is not for this case." }
   }
 
@@ -348,24 +227,12 @@ const sendPaymentConfirmationToTopic = async (groupChatId, topicId, payment) => 
 
 const buildPaidConfirmationText = (payment) => {
   const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
-  const isIntakeFee = payment.kind === "intake_fee"
-
-  if (isIntakeFee) {
-    return renderTemplate("payment/topic-paid-intake", { amountLabel })
-  }
-
   const descriptionSuffix = payment.description ? ` — ${payment.description}` : ""
   return renderTemplate("payment/topic-paid-provider", { amountLabel, descriptionSuffix })
 }
 
 const buildRefundedConfirmationText = (payment) => {
   const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
-  const isIntakeFee = payment.kind === "intake_fee"
-
-  if (isIntakeFee) {
-    return renderTemplate("payment/topic-refunded-intake", { amountLabel })
-  }
-
   const descriptionSuffix = payment.description ? ` — ${payment.description}` : ""
   return renderTemplate("payment/topic-refunded-provider", { amountLabel, descriptionSuffix })
 }

@@ -1,6 +1,6 @@
 # Babetbot
 
-Telegram bot for professional-services client intake, payment, and provider relay. Ships with copy for law firms (`lawyers`) and psychologists (`psychologists`); generic defaults live in `base`.
+Telegram bot for professional-services client intake and provider relay. Ships with copy for law firms (`lawyers`) and psychologists (`psychologists`); generic defaults live in `base`.
 
 Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI · Stripe.
 
@@ -8,11 +8,10 @@ Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI ·
 
 1. Client messages the bot in a private DM. A LangGraph intake agent collects required goals, answers firm FAQ via RAG, and saves extra notes.
 2. Intake goals are stored by the agent through `update_user_goal` only — no separate pre-agent extraction pipeline. Derived goals (e.g. `practice_area`) are inferred after `description` is saved.
-3. When all required goals are complete (including `consent=yes`), the client pays a fixed intake fee via Stripe Checkout.
-4. After payment, the bot broadcasts the case to all onboarded providers. The first provider to accept gets the client.
-5. The bot opens a forum topic in the provider's private chat with the bot (Telegram Threaded Mode) and posts the intake summary.
-6. Client messages and files stay in DM; the bot relays them to the provider's case topic. Provider replies in the topic are forwarded to the client DM.
-7. When the provider runs `/close`, the case ends, the client is notified, and intake state is reset for a future case.
+3. When all required goals are complete (including `consent=yes`), the bot broadcasts the case to all onboarded providers. The first provider to accept gets the client.
+4. The bot opens a forum topic in the provider's private chat with the bot (Telegram Threaded Mode) and posts the intake summary.
+5. Client messages and files stay in DM; the bot relays them to the provider's case topic. Provider replies in the topic are forwarded to the client DM.
+6. When the provider runs `/close`, the case ends, the client is notified, and intake state is reset for a future case.
 
 If no providers are onboarded, or all providers decline, admins are notified and the client gets a blocked/declined message.
 
@@ -43,7 +42,7 @@ If no providers are onboarded, or all providers decline, admins are notified and
 | `save_user_information` | Save extra intake notes not covered by goals |
 | `user_information_retrieval` | Search firm FAQ + client notes/goals during intake |
 
-Agent conversation state is checkpointed in Firestore (`agent_checkpoints` / `agent_writes`). Goal definitions are hardcoded in `src/lib/goals.ts`.
+Agent conversation state is checkpointed in Firestore (`agent_checkpoints` / `agent_writes`). Goal definitions live in `templates/{folder}/goals/definitions.json` (falls back to `base`); per-goal agent wording is in `templates/{folder}/goals/{key}.txt`.
 
 ## Firestore
 
@@ -124,7 +123,6 @@ Required at startup:
 | `FIREBASE_PROJECT_ID` | Firebase / Firestore project |
 | `KB_USER_ID` | Vector-store user id for firm FAQ docs |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Payments |
-| `INTAKE_FEE_AMOUNT_CENTS` | Fixed intake fee (e.g. `15000` = 150.00) |
 
 Optional:
 

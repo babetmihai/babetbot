@@ -7,7 +7,7 @@ import db, { deleteQueryDocs } from "./firestore.js"
 import rag from "./rag.js"
 import { CONSENT_YES_VALUE, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.js"
 import { type TToolConfig } from "./agent.js"
-import { loadTemplate } from "./templates.js"
+import { loadJsonTemplate, loadTemplate } from "./templates.js"
 
 
 export type GoalDefinition = {
@@ -32,32 +32,7 @@ export const isDeclinedGoalValue = (value) => {
   return normalized === DECLINED_GOAL_VALUE
 }
 
-const GOAL_DEFINITIONS: GoalDefinition[] = [
-  {
-    key: "description",
-    label: "Situation description",
-    description: "A brief description of their situation or what they need help with.",
-    goalType: "collect",
-    targetGoalKey: null,
-    priority: 10
-  },
-  {
-    key: "consent",
-    label: "Consent",
-    description: "Whether the client agrees to share their intake information with an assigned provider, after being told they must pay an intake fee before connecting with a provider.",
-    goalType: "collect",
-    targetGoalKey: null,
-    priority: 20
-  },
-  {
-    key: "practice_area",
-    label: "Focus area",
-    description: "The focus area, inferred from the client's description.",
-    goalType: "derive",
-    targetGoalKey: "description",
-    priority: 30
-  }
-]
+const GOAL_DEFINITIONS: GoalDefinition[] = loadJsonTemplate("goals/definitions")
 
 export const fetchUserGoalValues = async (userId) => {
   const snapshot = await db.collection("user_goal_values")
@@ -155,16 +130,25 @@ export const formatGoalContextForTools = (userGoals) =>
     .join(", ")
 
 export const syncDerivedGoals = async (userId, userGoals) => {
-  const description = getGoalValue(userGoals, "description")
-  const practiceArea = getGoalValue(userGoals, "practice_area")
-  if (!description || practiceArea) return userGoals
+  let nextGoals = userGoals
 
-  const inferred = await inferPracticeAreaFromDescription(description)
-  if (!inferred) return userGoals
+  for (const goal of userGoals.filter((item) => item.goalType === "derive")) {
+    if (trimmedGoalValue(goal)) continue
 
-  const practiceGoal = getGoalByKey(userGoals, "practice_area")
-  await setUserGoalValue(userId, "practice_area", inferred, practiceGoal)
-  return mergeUserGoals(userId)
+    const sourceKey = goal.targetGoalKey
+    if (!sourceKey) continue
+
+    const sourceValue = getGoalValue(nextGoals, sourceKey)
+    if (!sourceValue) continue
+
+    const inferred = await inferDerivedGoalValue(sourceValue)
+    if (!inferred) continue
+
+    await setUserGoalValue(userId, goal.key, inferred, goal)
+    nextGoals = await mergeUserGoals(userId)
+  }
+
+  return nextGoals
 }
 
 export const resetClientIntake = async (userId) => {
@@ -208,14 +192,16 @@ export const createUpdateUserGoalTool = () => tool(async ({ goalKey, value }, co
         return loadTemplate("agent/consent-validation-hint").trim()
       }
       if (goalKey === "description") {
-        return `Could not save "${definition.label}" — the client should describe their legal matter in their own words.`
+        return `Could not save "${definition.label}" — the client should describe this in their own words.`
       }
       return `Could not save "${definition.label}" from that value. Ask the client again.`
     }
 
     await setUserGoalValue(userId, goalKey, normalized, definition)
-    if (goalKey === "description") {
-      await syncDerivedGoals(userId, await mergeUserGoals(userId))
+    const updatedGoals = await mergeUserGoals(userId)
+    const isDeriveSource = updatedGoals.some((goal) => goal.goalType === "derive" && goal.targetGoalKey === goalKey)
+    if (isDeriveSource) {
+      await syncDerivedGoals(userId, updatedGoals)
     }
 
     return `Saved user goal "${definition.label}": "${value}"`
@@ -263,7 +249,7 @@ const buildGoalRagContent = (goal, value) =>
     ? `User declined to share their ${goal.label.toLowerCase()}.`
     : `User's ${goal.label.toLowerCase()}: ${value.trim()}`
 
-const inferPracticeAreaFromDescription = async (description) => {
+const inferDerivedGoalValue = async (sourceValue) => {
   const llm = new ChatOpenAI({
     apiKey: OPENAI_API_KEY,
     model: process.env.AGENT_MODEL ?? "gpt-4o-mini",
@@ -272,7 +258,7 @@ const inferPracticeAreaFromDescription = async (description) => {
 
   const response = await llm.invoke([
     new SystemMessage(loadTemplate("llm/infer-practice-area")),
-    new HumanMessage(description)
+    new HumanMessage(sourceValue)
   ])
 
   const picked = typeof response.content === "string" ? response.content.trim() : ""
