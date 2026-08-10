@@ -17,14 +17,11 @@ import { renderTemplate } from "./templates.ts"
 import {
   closeForumTopic,
   createForumTopic,
-  deleteForumTopic,
   editForumTopic,
+  notifyAdmins,
   sendToTopic,
   telegram
 } from "./telegram.ts"
-
-
-const { ADMIN_TELEGRAM_IDS } = process.env
 
 
 export type CaseRecord = {
@@ -38,8 +35,6 @@ export type CaseRecord = {
   status: "active" | "closed"
   intakeSummary: string | null
 }
-
-const notifiedIntakeBlocks = new Set()
 
 
 export const fetchActiveCase = async (clientTelegramId) => {
@@ -112,15 +107,21 @@ export const getIntakeProviderAvailability = async () => {
   }
 }
 
-export const buildIntakeBlockedClientMessage = () =>
-  renderTemplate("client/intake-blocked")
-
 export const notifyIntakeProviderBlocked = async (clientTelegramId, userGoals, availability) => {
-  const key = `${clientTelegramId}:${availability.reason}`
-  if (notifiedIntakeBlocks.has(key)) return
-  notifiedIntakeBlocks.add(key)
+  const ref = db.collection("intake_block_notifications").doc(`${clientTelegramId}_${availability.reason}`)
+  const claimed = await db.runTransaction(async (tx) => {
+    const doc = await tx.get(ref)
+    if (doc.exists) return false
+    tx.set(ref, {
+      clientTelegramId,
+      reason: availability.reason,
+      createdAt: new Date().toISOString()
+    })
+    return true
+  })
+  if (!claimed) return
 
-  await notifyFirmIntakeIssue(userGoals, renderTemplate("admin/intake-no-provider", {
+  await notifyAdmins(renderTemplate("admin/intake-no-provider", {
     intakeSummary: buildIntakeSummary(userGoals)
   }))
 }
@@ -187,7 +188,7 @@ const startProviderOfferBatch = async (clientTelegramId, clientChatId, userGoals
   const availability = await getIntakeProviderAvailability()
   if (!availability.canCompleteIntake) {
     await notifyIntakeProviderBlocked(clientTelegramId, userGoals, availability)
-    throw new Error(buildIntakeBlockedClientMessage())
+    throw new Error(renderTemplate("client/intake-blocked"))
   }
 
   const { availableProviders } = availability
@@ -224,7 +225,7 @@ const startProviderOfferBatch = async (clientTelegramId, clientChatId, userGoals
     status: "pending",
     acceptedProviderId: null
   }
-  const offerText = buildProviderOfferText(userGoals)
+  const offerText = renderTemplate("provider/offer", { intakeSummary: buildIntakeSummary(userGoals) })
 
   for (const provider of availableProviders) {
     const chatId = Number(provider.telegramUserId)
@@ -343,7 +344,7 @@ export const declineProviderOffer = async (batchId, providerTelegramUserId) => {
     })
 
     const userGoals = await mergeUserGoals(batch.clientTelegramId)
-    await notifyFirmIntakeIssue(userGoals, renderTemplate("admin/all-declined", {
+    await notifyAdmins(renderTemplate("admin/all-declined", {
       intakeSummary: buildIntakeSummary(userGoals)
     }))
 
@@ -358,9 +359,9 @@ export const declineProviderOffer = async (batchId, providerTelegramUserId) => {
 
 const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, provider) => {
   const providerChatId = Number(provider.telegramUserId)
-  const topicId = await createForumTopic(providerChatId, "New case")
   const intakeSummary = buildIntakeSummary(userGoals)
   const caseRef = db.collection("cases").doc()
+  const connectedMessage = renderTemplate("client/connected", { providerName: provider.name })
 
   const result = await db.runTransaction(async (tx) => {
     const active = await tx.get(
@@ -384,7 +385,7 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
       clientChatId,
       providerId: provider.id,
       groupChatId: providerChatId,
-      topicId,
+      topicId: null,
       status: "active",
       intakeSummary,
       createdAt: new Date().toISOString(),
@@ -396,8 +397,17 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
   if (result.raced) {
     return {
       caseRecord: result.caseRecord,
-      clientMessage: buildConnectedClientMessage(provider)
+      clientMessage: connectedMessage
     }
+  }
+
+  let topicId
+  try {
+    topicId = await createForumTopic(providerChatId, buildCaseTopicName(result.number))
+    await caseRef.update({ topicId })
+  } catch (error) {
+    await caseRef.delete()
+    throw error
   }
 
   const caseRecord = {
@@ -412,7 +422,6 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
     intakeSummary
   }
 
-  await editForumTopic(providerChatId, topicId, buildCaseTopicName(caseRecord.number))
   await sendToTopic(
     providerChatId,
     topicId,
@@ -430,22 +439,7 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
 
   return {
     caseRecord,
-    clientMessage: buildConnectedClientMessage(provider)
-  }
-}
-
-const notifyFirmIntakeIssue = async (userGoals, text) => {
-  const adminTelegramIds = ADMIN_TELEGRAM_IDS
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)
-
-  for (const adminId of adminTelegramIds) {
-    try {
-      await telegram.sendMessage(Number(adminId), text)
-    } catch (error) {
-      console.error("notifyFirmIntakeIssue error", adminId, error.message)
-    }
+    clientMessage: connectedMessage
   }
 }
 
@@ -470,12 +464,6 @@ const dismissOfferMessage = async (chatId, messageId) => {
     console.error("dismissOfferMessage error", error.message)
   }
 }
-
-const buildConnectedClientMessage = (provider) =>
-  renderTemplate("client/connected", { providerName: provider.name })
-
-const buildProviderOfferText = (userGoals) =>
-  renderTemplate("provider/offer", { intakeSummary: buildIntakeSummary(userGoals) })
 
 const buildCaseTopicName = (caseNumber, closed = false) => {
   const prefix = closed ? "Closed — " : ""

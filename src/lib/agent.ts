@@ -56,7 +56,7 @@ const llm = new ChatOpenAI({
 
 const systemPrompt = renderTemplate("agent/intake-system", { legalDisclaimer: LEGAL_DISCLAIMER })
 
-const UserGoalSchema = z.object({
+export const UserGoalSchema = z.object({
   key: z.string(),
   label: z.string(),
   description: z.string(),
@@ -88,24 +88,27 @@ export const agent = createAgent({
   ]
 })
 
+export const getLlmMessageText = (message) => {
+  if (typeof message.content === "string") return message.content.trim()
+  if (!Array.isArray(message.content)) return null
+
+  const text = message.content
+    .map((part) => {
+      if (typeof part === "string") return part
+      return part.text || ""
+    })
+    .join("")
+    .trim()
+
+  return text || null
+}
+
 export const getAgentReply = (messages) => {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i]
     if (!AIMessage.isInstance(message)) continue
 
-    let content = ""
-    if (typeof message.content === "string") {
-      content = message.content
-    } else if (Array.isArray(message.content)) {
-      content = message.content
-        .map((part) => {
-          if (typeof part === "string") return part
-          return part.text || ""
-        })
-        .join("")
-    }
-
-    const text = content.trim()
+    const text = getLlmMessageText(message)
     if (text) return text
   }
   return null

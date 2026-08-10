@@ -1,5 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages"
 import { ChatOpenAI } from "@langchain/openai"
+import { getLlmMessageText } from "./agent.ts"
 import { fetchProvider } from "./providers.ts"
 import rag, { PROMPT_TYPES } from "./rag.ts"
 import { renderTemplate, loadTemplate } from "./templates.ts"
@@ -27,8 +28,9 @@ export const generateConversationAnalysis = async (caseRecord) => {
   })
 
   const response = await llm.invoke([new HumanMessage(prompt)])
-
-  return getMessageText(response)
+  const text = getLlmMessageText(response)
+  if (!text) throw new Error("Could not analyze the conversation.")
+  return text
 }
 
 const buildCaseContext = async (caseRecord) => {
@@ -85,18 +87,3 @@ const trimContext = (text) => {
   return `${text.slice(0, MAX_CONTEXT_CHARS)}\n\n[Truncated]`
 }
 
-const getMessageText = (message) => {
-  if (typeof message.content === "string") return message.content.trim()
-  if (!Array.isArray(message.content)) throw new Error("Could not analyze the conversation.")
-
-  const text = message.content
-    .map((part) => {
-      if (typeof part === "string") return part
-      return part.text || ""
-    })
-    .join("")
-    .trim()
-
-  if (!text) throw new Error("Could not analyze the conversation.")
-  return text
-}

@@ -1,22 +1,15 @@
-import path from "path"
 import fs from "fs"
-import axios from "axios"
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
 import { fetchActiveCase } from "../lib/cases.ts"
+import { downloadTelegramFile } from "../lib/files.ts"
+import rag, { KB_SCOPE, PROMPT_TYPES } from "../lib/rag.ts"
 import { relayClientFile } from "../lib/relay.ts"
 import { renderTemplate } from "../lib/templates.ts"
-import rag, { KB_SCOPE, PROMPT_TYPES } from "../lib/rag.ts"
+import { isAdmin } from "../lib/telegram.ts"
 
 
-const {
-  ADMIN_TELEGRAM_IDS,
-  KB_USER_ID
-} = process.env
-const adminTelegramIds = ADMIN_TELEGRAM_IDS
-  .split(",")
-  .map((id) => id.trim())
-  .filter(Boolean)
+const { KB_USER_ID } = process.env
 
 const bot = new Composer()
 
@@ -27,7 +20,7 @@ bot.on(message("document"), async (ctx) => {
     const userId = ctx.from.id.toString()
     const doc = ctx.message.document
 
-    if (adminTelegramIds.includes(userId)) {
+    if (isAdmin(userId)) {
       if (doc.mime_type !== "application/pdf") {
         await ctx.reply("Only PDF files are supported for the firm knowledge base.")
         return
@@ -35,25 +28,17 @@ bot.on(message("document"), async (ctx) => {
 
       await ctx.reply(`Ingesting firm document: <b>${doc.file_name}</b>…`, { parse_mode: "HTML" })
 
-      const fileLink = await ctx.telegram.getFileLink(doc.file_id)
       const fileName = doc.file_name || `file_${Date.now()}_${doc.file_id.slice(0, 8)}`
-      const savePath = path.join(process.cwd(), "downloads", fileName)
+      const savePath = await downloadTelegramFile(doc.file_id, fileName)
 
-      fs.mkdirSync(path.dirname(savePath), { recursive: true })
-      const writer = fs.createWriteStream(savePath)
-      const response = await axios.get(fileLink.href, { responseType: "stream" })
-      response.data.pipe(writer)
-      await new Promise((resolve, reject) => {
-        writer.on("finish", resolve)
-        writer.on("error", reject)
-      })
-
-      await rag.ingestPdf(KB_USER_ID, "firm", savePath, {
-        scope: KB_SCOPE.firm,
-        type: PROMPT_TYPES.note
-      })
-
-      await fs.unlinkSync(savePath)
+      try {
+        await rag.ingestPdf(KB_USER_ID, "firm", savePath, {
+          scope: KB_SCOPE.firm,
+          type: PROMPT_TYPES.note
+        })
+      } finally {
+        fs.unlinkSync(savePath)
+      }
 
       await ctx.reply(`Added to firm knowledge base: ${fileName}`)
       return

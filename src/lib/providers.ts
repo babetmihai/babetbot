@@ -1,16 +1,7 @@
 import db from "./firestore.ts"
 import { renderTemplate } from "./templates.ts"
-import { telegram } from "./telegram.ts"
+import { isAdmin, notifyAdmins, telegram } from "./telegram.ts"
 
-
-const { ADMIN_TELEGRAM_IDS } = process.env
-const adminTelegramIds = ADMIN_TELEGRAM_IDS
-  .split(",")
-  .map((id) => id.trim())
-  .filter(Boolean)
-
-const isAdmin = (telegramUserId) =>
-  adminTelegramIds.includes(telegramUserId)
 
 export type Provider = {
   id: string
@@ -81,9 +72,6 @@ export const createProvider = async (input) => {
   return fetchProvider(ref.id)
 }
 
-export const buildProviderWelcomeText = (providerName) =>
-  renderTemplate("provider/welcome", { providerName })
-
 export const submitProviderSignupRequest = async (input) => {
   const existingProvider = await fetchProviderByTelegramUserId(input.telegramUserId)
   if (existingProvider) {
@@ -104,7 +92,7 @@ export const submitProviderSignupRequest = async (input) => {
     }
 
     return {
-      message: buildProviderWelcomeText(provider.name)
+      message: renderTemplate("provider/welcome", { providerName: provider.name })
     }
   }
 
@@ -171,7 +159,7 @@ export const respondToProviderSignupRequest = async (requestId, adminTelegramUse
   try {
     await telegram.sendMessage(
       Number(request.telegramUserId),
-      buildProviderWelcomeText(provider.name)
+      renderTemplate("provider/welcome", { providerName: provider.name })
     )
   } catch (error) {
     console.error("provider signup approve notify error", error.message)
@@ -269,18 +257,12 @@ const notifyAdminsOfProviderSignupRequest = async (request) => {
     userId: request.telegramUserId
   })
 
-  const keyboard = {
-    inline_keyboard: [[
-      { text: "Approve", callback_data: `pjoin:${request.id}:approve` },
-      { text: "Decline", callback_data: `pjoin:${request.id}:decline` }
-    ]]
-  }
-
-  for (const adminId of adminTelegramIds) {
-    try {
-      await telegram.sendMessage(Number(adminId), text, { reply_markup: keyboard })
-    } catch (error) {
-      console.error("notifyAdminsOfProviderSignupRequest error", adminId, error.message)
+  await notifyAdmins(text, {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "Approve", callback_data: `pjoin:${request.id}:approve` },
+        { text: "Decline", callback_data: `pjoin:${request.id}:decline` }
+      ]]
     }
-  }
+  })
 }

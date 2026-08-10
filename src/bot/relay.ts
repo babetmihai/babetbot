@@ -18,9 +18,6 @@ import { renderTemplate } from "../lib/templates.ts"
 import { deleteForumTopic, fetchBotId } from "../lib/telegram.ts"
 
 
-const { STRIPE_CURRENCY } = process.env
-const stripeCurrency = STRIPE_CURRENCY.toLowerCase()
-
 const bot = new Composer()
 
 bot.command("close", async (ctx, next) => {
@@ -32,12 +29,8 @@ bot.command("close", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchProvider(caseRecord.providerId)
-  const fromId = ctx.from.id.toString()
-  if (!provider || fromId !== provider.telegramUserId) {
-    await ctx.reply(renderTemplate("bot/not-assigned-close"))
-    return
-  }
+  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-close")
+  if (!provider) return
 
   await closeCase(caseRecord.id)
 })
@@ -51,12 +44,8 @@ bot.command("delete", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchProvider(caseRecord.providerId)
-  const fromId = ctx.from.id.toString()
-  if (!provider || fromId !== provider.telegramUserId) {
-    await ctx.reply(renderTemplate("bot/not-assigned-delete"))
-    return
-  }
+  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-delete")
+  if (!provider) return
 
   await deleteForumTopic(caseRecord.groupChatId, caseRecord.topicId)
 })
@@ -70,12 +59,8 @@ bot.command("pay", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchProvider(caseRecord.providerId)
-  const fromId = ctx.from.id.toString()
-  if (!provider || fromId !== provider.telegramUserId) {
-    await ctx.reply(renderTemplate("bot/not-assigned-pay"))
-    return
-  }
+  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-pay")
+  if (!provider) return
 
   if (!("text" in ctx.message)) return
 
@@ -92,7 +77,7 @@ bot.command("pay", async (ctx, next) => {
     parsed.description
   )
 
-  const amountLabel = formatPaymentAmount(payment.amountCents, stripeCurrency)
+  const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
   await ctx.reply(`Payment link sent to client (${amountLabel}).`)
 })
 
@@ -105,12 +90,8 @@ bot.command("analyze", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchProvider(caseRecord.providerId)
-  const fromId = ctx.from.id.toString()
-  if (!provider || fromId !== provider.telegramUserId) {
-    await ctx.reply(renderTemplate("bot/not-assigned-analyze"))
-    return
-  }
+  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-analyze")
+  if (!provider) return
 
   const topicExtra = { message_thread_id: ctx.message.message_thread_id }
   let pendingMessageId = null
@@ -264,6 +245,16 @@ bot.on("callback_query", async (ctx, next) => {
 })
 
 export default bot
+
+const fetchAssignedProvider = async (ctx, caseRecord, notAssignedTemplate) => {
+  const provider = await fetchProvider(caseRecord.providerId)
+  const fromId = ctx.from.id.toString()
+  if (!provider || fromId !== provider.telegramUserId) {
+    await ctx.reply(renderTemplate(notAssignedTemplate))
+    return null
+  }
+  return provider
+}
 
 const isProviderCaseTopicMessage = (ctx) => {
   const isPrivate = ctx.chat.type === "private"

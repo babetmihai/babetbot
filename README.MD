@@ -57,6 +57,7 @@ Standard edition, Native mode. Auth via ADC or `GOOGLE_APPLICATION_CREDENTIALS`;
 | `provider_signup_requests` | Admin approve/decline queue |
 | `provider_case_offer_batches` | Broadcast offer batches |
 | `provider_case_offer_batches/{id}/messages` | Per-provider offer Telegram messages |
+| `intake_block_notifications` | Dedupe admin alerts when intake is blocked |
 | `cases` | Active/closed client ↔ provider cases |
 | `payments` | Stripe checkout rows |
 | `documents` | RAG chunks + vector embeddings |
@@ -102,16 +103,16 @@ Single-field equality lookups (`providers.telegramUserId`, `payments.stripeSessi
 1. Enable **Threaded Mode** for the bot in @BotFather.
 2. Create a Firestore **Standard** (Native mode) database and create the indexes above.
 3. Copy `.env` from a teammate or create one from the env list below. Authenticate with ADC or `GOOGLE_APPLICATION_CREDENTIALS`.
-4. `npm install` then `npm start` — local Express + ngrok for Telegram/Stripe webhooks.
-5. Local Stripe webhooks: set `STRIPE_DEV=1` and run `npm run stripe` in a second terminal.
+4. `npm install` then `npm run dev` — local Express + ngrok + Stripe CLI forwarding.
+5. Or run `npm start` and `npm run stripe` in separate terminals.
 
 ## Production (Firebase Functions)
 
-Same Express app as local. Dev entry is `src/index.ts` (ngrok + `app.listen`); production entry is `src/functions.ts` (`onRequest`).
+Same Express app as local. Dev entry is `src/dev.ts` (ngrok + `app.listen`); production entry is `src/prod.ts` (`onRequest`, Node 22 type-stripping — no `dist/` build).
 
 1. `npm install` and `firebase login`
 2. Set function env/secrets in Firebase (same vars as `.env`)
-3. `npm run deploy` — builds `src/` → `dist/` and deploys the `api` function
+3. `npm run prod` — deploys the `api` function
 
 On instance init, the function registers Telegram/Stripe webhooks to
 `https://europe-west1-{project}.cloudfunctions.net/api`.
@@ -122,31 +123,20 @@ User-facing messages and LLM prompts live in `templates/` as `.txt` files with `
 
 ## Env
 
-Required at startup:
+No silent defaults in code — set every value the process reads. See `.env.example`.
 
 | Variable | Purpose |
 | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
 | `TELEGRAM_SECRET_TOKEN` | Webhook secret header |
+| `ADMIN_TELEGRAM_IDS` | Comma-separated admin Telegram user ids |
 | `OPENAI_API_KEY` | Agent, RAG embeddings, analysis |
+| `AGENT_MODEL` | Intake agent + analysis model |
 | `FIREBASE_PROJECT_ID` | Firebase / Firestore project |
 | `KB_USER_ID` | Vector-store user id for firm FAQ docs |
+| `TEMPLATE_FOLDER` | Template override folder (`lawyers`, `psychologists`, or `base`) |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Payments |
-
-Local only:
-
-| Variable | Purpose |
-| --- | --- |
+| `STRIPE_CURRENCY` | Checkout currency (e.g. `ron`) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to Firebase service-account JSON (local; or use ADC) |
 | `NGROK_AUTH_TOKEN` | Tunnel for local webhooks |
-| `PORT` | Express port (default `8080`) |
-
-Optional:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `TEMPLATE_FOLDER` | `base` | Template override folder |
-| `AGENT_MODEL` | `gpt-4o-mini` | Intake agent + analysis model |
-| `STRIPE_DEV` | off | `1` = skip live Stripe webhook registration |
-| `STRIPE_CURRENCY` | `ron` | Checkout currency |
-| `ADMIN_TELEGRAM_IDS` | — | Comma-separated admin Telegram user ids |
-| `GOOGLE_APPLICATION_CREDENTIALS` | ADC | Path to Firebase service-account JSON (local) |
+| `PORT` | Express port (local) |

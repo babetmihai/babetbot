@@ -9,20 +9,10 @@ import {
   mergeUserGoals,
   syncDerivedGoals
 } from "../goals.ts"
-import type { TAgentRuntime } from "../agent.ts"
+import { UserGoalSchema, type TAgentRuntime } from "../agent.ts"
 import { loadTemplate } from "../templates.ts"
 
 const GOAL_COLLECTION_RULES = loadTemplate("agent/goal-collection-rules").trim()
-
-const UserGoalSchema = z.object({
-  key: z.string(),
-  label: z.string(),
-  description: z.string(),
-  prompt: z.string().nullable().optional(),
-  value: z.string().nullable().default(null),
-  priority: z.number().optional(),
-  goalType: z.string().optional()
-})
 
 const stateSchema = z.object({
   userGoals: z.array(UserGoalSchema).default([])
@@ -43,6 +33,7 @@ const memoryMiddleware = createMiddleware({
     return { userGoals }
   },
   wrapModelCall: async (request, handler) => {
+    // @ts-expect-error langchain contextSchema is not reflected on runtime.context
     const { userId, userMessage } = request.runtime.context
     const userGoals = await refreshUserGoals(userId, userMessage)
 
@@ -59,8 +50,6 @@ const memoryMiddleware = createMiddleware({
 export default memoryMiddleware
 
 const refreshUserGoals = async (userId, latestMessage = "") => {
-  if (!userId) return []
-
   let userGoals = await mergeUserGoals(String(userId))
   userGoals = await syncDerivedGoals(String(userId), userGoals, latestMessage)
   return userGoals

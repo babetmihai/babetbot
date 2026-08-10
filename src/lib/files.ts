@@ -4,6 +4,7 @@ import axios from "axios"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
 import { HumanMessage } from "@langchain/core/messages"
 import { ChatOpenAI } from "@langchain/openai"
+import { getLlmMessageText } from "./agent.ts"
 import type { CaseRecord } from "./cases.ts"
 import rag, { PROMPT_TYPES } from "./rag.ts"
 import { loadTemplate, renderTemplate } from "./templates.ts"
@@ -75,7 +76,7 @@ const getFileInfo = (message) => {
   return null
 }
 
-const downloadTelegramFile = async (fileId, fileName) => {
+export const downloadTelegramFile = async (fileId, fileName) => {
   const fileLink = await telegram.getFileLink(fileId)
   const safeName = fileName || `file_${Date.now()}_${fileId.slice(0, 8)}`
   const savePath = path.join(process.cwd(), "downloads", safeName)
@@ -118,7 +119,9 @@ const summarizeImage = async (filePath, mimeType, fileName, caseContext) => {
     })
   ])
 
-  return getMessageText(response)
+  const text = getLlmMessageText(response)
+  if (!text) throw new Error("Could not summarize this file.")
+  return text
 }
 
 const summarizeText = async (text, fileName, fileType, caseContext) => {
@@ -126,7 +129,9 @@ const summarizeText = async (text, fileName, fileType, caseContext) => {
     new HumanMessage(buildSummaryPrompt(fileName, fileType, caseContext, text))
   ])
 
-  return getMessageText(response)
+  const summary = getLlmMessageText(response)
+  if (!summary) throw new Error("Could not summarize this file.")
+  return summary
 }
 
 const buildSummaryPrompt = (fileName, fileType, caseContext, text = null) => {
@@ -163,18 +168,3 @@ const buildCaseContext = async (caseRecord) => {
   return `${context.slice(0, MAX_CONTEXT_CHARS)}\n\n[Truncated]`
 }
 
-const getMessageText = (message) => {
-  if (typeof message.content === "string") return message.content.trim()
-  if (!Array.isArray(message.content)) throw new Error("Could not summarize this file.")
-
-  const text = message.content
-    .map((part) => {
-      if (typeof part === "string") return part
-      return part.text || ""
-    })
-    .join("")
-    .trim()
-
-  if (!text) throw new Error("Could not summarize this file.")
-  return text
-}

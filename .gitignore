@@ -30,14 +30,14 @@ __pycache__/
 .ruff_cache/
 
 # Project Specific
-package-lock.json*
 credentials.json*
 build
-lib
+/lib
 dist
 downloads
-.env*
 .env
+.env.*
+!.env.example
 env.json*
 .firebase
 *firebase-adminsdk*.json

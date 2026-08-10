@@ -1,9 +1,30 @@
 import { Telegram } from "telegraf"
 
 
-const { TELEGRAM_BOT_TOKEN } = process.env
+const {
+  TELEGRAM_BOT_TOKEN,
+  ADMIN_TELEGRAM_IDS
+} = process.env
 
 export const telegram = new Telegram(TELEGRAM_BOT_TOKEN)
+
+export const adminTelegramIds = ADMIN_TELEGRAM_IDS
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean)
+
+export const isAdmin = (telegramUserId) =>
+  adminTelegramIds.includes(telegramUserId)
+
+export const notifyAdmins = async (text, extra = {}) => {
+  for (const adminId of adminTelegramIds) {
+    try {
+      await telegram.sendMessage(Number(adminId), text, extra)
+    } catch (error) {
+      console.error("notifyAdmins error", adminId, error.message)
+    }
+  }
+}
 
 export const createForumTopic = async (chatId, name) => {
   const result = await telegram.callApi("createForumTopic", {

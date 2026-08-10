@@ -7,7 +7,6 @@ import {
 } from "../lib/goals.ts"
 import rag from "../lib/rag.ts"
 import {
-  buildIntakeBlockedClientMessage,
   escalateToProvider,
   fetchActiveCase,
   getIntakeProviderAvailability,
@@ -85,7 +84,7 @@ const tryConnectClient = async (ctx, userId, chatId, userGoals, userMessage) => 
   const availability = await getIntakeProviderAvailability()
   if (!availability.canCompleteIntake) {
     await notifyIntakeProviderBlocked(userId, userGoals, availability)
-    await sendReply(ctx, userId, userMessage, buildIntakeBlockedClientMessage())
+    await sendReply(ctx, userId, userMessage, renderTemplate("client/intake-blocked"))
     return true
   }
 

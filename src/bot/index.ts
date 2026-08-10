@@ -4,7 +4,6 @@ import uploadBot from "./upload.ts"
 import relayBot from "./relay.ts"
 import adminBot from "./admin.ts"
 import {
-  buildProviderWelcomeText,
   fetchProviderByTelegramUserId,
   markProviderBotStarted,
   submitProviderSignupRequest
@@ -22,7 +21,7 @@ bot.start(async (ctx) => {
 
   if (provider) {
     await markProviderBotStarted(fromId)
-    await ctx.reply(buildProviderWelcomeText(provider.name))
+    await ctx.reply(renderTemplate("provider/welcome", { providerName: provider.name }))
     return
   }
 
