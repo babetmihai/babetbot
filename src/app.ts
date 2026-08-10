@@ -52,7 +52,7 @@ app.use(bot.webhookCallback(BOT_WEBHOOK_PATH))
 app.use((error, req, res, next) => {
   console.error(error)
   if (res.headersSent) return
-  res.status(500).json({ message: error.message })
+  res.status(500).json({ message: "Something went wrong." })
 })
 
 export default app

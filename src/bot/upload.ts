@@ -48,7 +48,7 @@ bot.on(message("document"), async (ctx) => {
     await relayClientUpload(ctx, `sent a file${fileName}`, "document", doc.file_id)
   } catch (error) {
     console.error("Error handling document:", error)
-    await ctx.reply(error.message)
+    await ctx.reply(renderTemplate("bot/error"))
   }
 })
 
@@ -61,7 +61,7 @@ bot.on(message("photo"), async (ctx) => {
     await relayClientUpload(ctx, "sent a photo", "photo", fileId)
   } catch (error) {
     console.error("Error handling photo:", error)
-    await ctx.reply(error.message)
+    await ctx.reply(renderTemplate("bot/error"))
   }
 })
 

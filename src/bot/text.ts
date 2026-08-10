@@ -55,7 +55,7 @@ bot.on(message("text"), async (ctx) => {
     await runIntakeAgent(ctx, userId, ctx.chat.id, textMessage, syncedGoals)
   } catch (error) {
     console.error("Error processing message:", error)
-    await ctx.reply(error.message)
+    await ctx.reply(renderTemplate("bot/error"))
   } finally {
     stopTyping()
   }

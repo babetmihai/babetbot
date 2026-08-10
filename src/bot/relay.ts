@@ -109,15 +109,17 @@ bot.command("analyze", async (ctx, next) => {
       analysis.trim()
     )
   } catch (error) {
+    console.error("Error analyzing conversation:", error)
+    const errorText = renderTemplate("bot/error")
     if (pendingMessageId) {
       await ctx.telegram.editMessageText(
         ctx.chat.id,
         pendingMessageId,
         undefined,
-        `Error: ${error.message}`
+        errorText
       ).catch(() => {})
     } else {
-      await ctx.reply(`Error: ${error.message}`, topicExtra)
+      await ctx.reply(errorText, topicExtra)
     }
   }
 })
@@ -181,7 +183,8 @@ bot.on("callback_query", async (ctx, next) => {
       await ctx.reply(`Summary:\n\n${summary}`, { message_thread_id: message.message_thread_id })
       await ctx.editMessageReplyMarkup({ inline_keyboard: [] })
     } catch (error) {
-      await answerCbQuerySafe(ctx, error.message)
+      console.error("Error analyzing file:", error)
+      await answerCbQuerySafe(ctx, renderTemplate("bot/error"))
     }
     return
   }
@@ -217,7 +220,8 @@ bot.on("callback_query", async (ctx, next) => {
         })
       }
     } catch (error) {
-      await ctx.answerCbQuery(error.message)
+      console.error("Error refunding payment:", error)
+      await ctx.answerCbQuery(renderTemplate("bot/error"))
     }
     return
   }
