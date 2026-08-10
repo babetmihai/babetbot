@@ -1,8 +1,8 @@
 import { onInit } from "firebase-functions/v2/core"
 import { onRequest } from "firebase-functions/v2/https"
-import app from "./app.ts"
+import app, { registerTelegramWebhook, stripeWebhookPath } from "./app.ts"
 import { FIREBASE_PROJECT_ID, PUBLIC_BASE_URL } from "./config.ts"
-import { registerWebhooks } from "./webhooks.ts"
+import { ensureStripeWebhook } from "./lib/stripe.ts"
 
 
 const FUNCTION_REGION = "europe-west1"
@@ -16,7 +16,10 @@ const getFunctionBaseUrl = () => {
 }
 
 onInit(async () => {
-  const { botUrl, stripeWebhookUrl } = await registerWebhooks(getFunctionBaseUrl())
+  const baseUrl = getFunctionBaseUrl()
+  const botUrl = await registerTelegramWebhook(baseUrl)
+  const stripeWebhookUrl = `${baseUrl}${stripeWebhookPath}`
+  await ensureStripeWebhook(stripeWebhookUrl)
   console.log(`Bot webhook → ${botUrl}`)
   console.log(`Stripe webhook → ${stripeWebhookUrl}`)
 })

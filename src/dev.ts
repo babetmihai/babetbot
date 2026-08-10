@@ -1,7 +1,7 @@
 import ngrok from "@ngrok/ngrok"
-import app from "./app.ts"
-import { NGROK_AUTH_TOKEN, PORT, STRIPE_DEV } from "./config.ts"
-import { registerWebhooks } from "./webhooks.ts"
+import app, { registerTelegramWebhook } from "./app.ts"
+import { NGROK_AUTH_TOKEN, PORT } from "./config.ts"
+import { disableStripeWebhook } from "./lib/stripe.ts"
 
 
 const init = async () => {
@@ -14,16 +14,11 @@ const init = async () => {
       authtoken: NGROK_AUTH_TOKEN,
       region: "eu"
     })
-    const baseUrl = listener.url()
-    const { stripeWebhookUrl } = await registerWebhooks(baseUrl)
+    const botUrl = await registerTelegramWebhook(listener.url())
+    await disableStripeWebhook()
 
     app.listen(PORT, () => console.log(`Server → http://localhost:${PORT}`))
-    console.log("Bot started")
-    if (STRIPE_DEV) {
-      console.log("Stripe dev mode — run: npm run stripe")
-    } else {
-      console.log(`Stripe webhook → ${stripeWebhookUrl}`)
-    }
+    console.log(`Bot webhook → ${botUrl}`)
   } catch (error) {
     console.error(error)
     process.exit(1)

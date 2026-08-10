@@ -49,4 +49,12 @@ app.use((error, req, res, next) => {
 
 export default app
 
+export const registerTelegramWebhook = async (baseUrl) => {
+  const botUrl = `${baseUrl}${botPath}`
+  await bot.telegram.setWebhook(botUrl, {
+    secret_token: TELEGRAM_SECRET_TOKEN
+  })
+  return botUrl
+}
+
 const getWebhookPayload = (req) => req.rawBody || req.body

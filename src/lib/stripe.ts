@@ -1,8 +1,7 @@
 import Stripe from "stripe"
 import {
   STRIPE_CURRENCY,
-  STRIPE_SECRET_KEY,
-  STRIPE_WEBHOOK_SECRET
+  STRIPE_SECRET_KEY
 } from "../config.ts"
 import { fetchBotUsername } from "./telegram.ts"
 
@@ -10,7 +9,7 @@ import { fetchBotUsername } from "./telegram.ts"
 export const stripe = new Stripe(STRIPE_SECRET_KEY)
 
 export const verifyStripeWebhook = (rawBody, signature) =>
-  stripe.webhooks.constructEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET)
+  stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET)
 
 const stripeWebhookEvents: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = ["checkout.session.completed"]
 
@@ -20,7 +19,7 @@ export const disableStripeWebhook = async () => {
   if (!existing || existing.status === "disabled") return
 
   await stripe.webhookEndpoints.update(existing.id, { disabled: true })
-  console.log("Stripe webhook endpoint disabled (STRIPE_DEV=1)")
+  console.log("Stripe webhook endpoint disabled for local CLI")
 }
 
 export const ensureStripeWebhook = async (webhookUrl) => {
@@ -28,7 +27,8 @@ export const ensureStripeWebhook = async (webhookUrl) => {
   const existing = endpoints.find((endpoint) => endpoint.metadata?.app === "babetbot")
 
   if (existing) {
-    if (existing.url !== webhookUrl) {
+    const needsUpdate = existing.url !== webhookUrl || existing.status === "disabled"
+    if (needsUpdate) {
       await stripe.webhookEndpoints.update(existing.id, {
         url: webhookUrl,
         enabled_events: stripeWebhookEvents,
