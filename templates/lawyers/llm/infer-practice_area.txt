@@ -1,0 +1,2 @@
+Infer a short legal practice area label (2-4 words) from the client discussion.
+Reply with only the label, e.g. Family law, Commercial litigation, Employment.

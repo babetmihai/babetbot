@@ -17,7 +17,6 @@ export type GoalDefinition = {
   prompt?: string | null
   priority?: number
   goalType?: string
-  targetGoalKey?: string | null
 }
 
 export type UserGoal = GoalDefinition & {
@@ -129,19 +128,17 @@ export const formatGoalContextForTools = (userGoals) =>
     .map((goal) => `${goal.key}=${trimmedGoalValue(goal)}`)
     .join(", ")
 
-export const syncDerivedGoals = async (userId, userGoals) => {
+export const syncDerivedGoals = async (userId, userGoals, latestMessage = "") => {
+  const pending = userGoals.filter((goal) => goal.goalType === "derive" && !trimmedGoalValue(goal))
+  if (!pending.length) return userGoals
+
+  const discussion = await buildDiscussionContext(userId, latestMessage)
+  if (!discussion) return userGoals
+
   let nextGoals = userGoals
 
-  for (const goal of userGoals.filter((item) => item.goalType === "derive")) {
-    if (trimmedGoalValue(goal)) continue
-
-    const sourceKey = goal.targetGoalKey
-    if (!sourceKey) continue
-
-    const sourceValue = getGoalValue(nextGoals, sourceKey)
-    if (!sourceValue) continue
-
-    const inferred = await inferDerivedGoalValue(sourceValue)
+  for (const goal of pending) {
+    const inferred = await inferDerivedGoalValue(goal, discussion)
     if (!inferred) continue
 
     await setUserGoalValue(userId, goal.key, inferred, goal)
@@ -198,10 +195,8 @@ export const createUpdateUserGoalTool = () => tool(async ({ goalKey, value }, co
     }
 
     await setUserGoalValue(userId, goalKey, normalized, definition)
-    const updatedGoals = await mergeUserGoals(userId)
-    const isDeriveSource = updatedGoals.some((goal) => goal.goalType === "derive" && goal.targetGoalKey === goalKey)
-    if (isDeriveSource) {
-      await syncDerivedGoals(userId, updatedGoals)
+    if ((definition.goalType || "collect") === "collect") {
+      await syncDerivedGoals(userId, await mergeUserGoals(userId), config.context.userMessage)
     }
 
     return `Saved user goal "${definition.label}": "${value}"`
@@ -249,7 +244,20 @@ const buildGoalRagContent = (goal, value) =>
     ? `User declined to share their ${goal.label.toLowerCase()}.`
     : `User's ${goal.label.toLowerCase()}: ${value.trim()}`
 
-const inferDerivedGoalValue = async (sourceValue) => {
+const buildDiscussionContext = async (userId, latestMessage = "") => {
+  const turns = await rag.listRecent(userId, 20, { type: PROMPT_TYPES.conversation })
+  const lines = turns
+    .slice()
+    .reverse()
+    .map((turn) => `${turn.metadata.role || "user"}: ${turn.pageContent}`)
+
+  const latest = (latestMessage || "").trim()
+  if (latest) lines.push(`user: ${latest}`)
+
+  return lines.join("\n").trim()
+}
+
+const inferDerivedGoalValue = async (goal, discussion) => {
   const llm = new ChatOpenAI({
     apiKey: OPENAI_API_KEY,
     model: process.env.AGENT_MODEL ?? "gpt-4o-mini",
@@ -257,8 +265,8 @@ const inferDerivedGoalValue = async (sourceValue) => {
   })
 
   const response = await llm.invoke([
-    new SystemMessage(loadTemplate("llm/infer-practice-area")),
-    new HumanMessage(sourceValue)
+    new SystemMessage(loadTemplate(`llm/infer-${goal.key}`)),
+    new HumanMessage(discussion)
   ])
 
   const picked = typeof response.content === "string" ? response.content.trim() : ""

@@ -46,7 +46,7 @@ bot.on(message("text"), async (ctx) => {
     }
 
     const userGoals = await mergeUserGoals(userId)
-    const syncedGoals = await syncDerivedGoals(userId, userGoals)
+    const syncedGoals = await syncDerivedGoals(userId, userGoals, textMessage)
 
     if (isReadyForEscalation(syncedGoals)) {
       const handled = await tryConnectClient(ctx, userId, ctx.chat.id, syncedGoals, textMessage)
@@ -119,7 +119,7 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => 
       )
     } else if (errorCode === "GRAPH_RECURSION_LIMIT") {
       await resetAgentThread(userId)
-      const recoveredGoals = await syncDerivedGoals(userId, await mergeUserGoals(userId))
+      const recoveredGoals = await syncDerivedGoals(userId, await mergeUserGoals(userId), textMessage)
       const intakeJustCompleted = !wasReadyForEscalation && isReadyForEscalation(recoveredGoals)
       if (intakeJustCompleted) {
         const handled = await tryConnectClient(ctx, userId, chatId, recoveredGoals, textMessage)
@@ -136,7 +136,7 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => 
   if (!updatedGoals.length) {
     updatedGoals = await mergeUserGoals(userId)
   }
-  updatedGoals = await syncDerivedGoals(userId, updatedGoals)
+  updatedGoals = await syncDerivedGoals(userId, updatedGoals, textMessage)
 
   const intakeJustCompleted = !wasReadyForEscalation && isReadyForEscalation(updatedGoals)
   if (intakeJustCompleted) {

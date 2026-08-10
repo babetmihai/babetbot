@@ -426,8 +426,11 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
   }
 
   await editForumTopic(providerChatId, topicId, buildCaseTopicName(caseRecord.number))
-  await sendToTopic(providerChatId, topicId, intakeSummary)
-  await sendToTopic(providerChatId, topicId, renderTemplate("provider/topic-opening"))
+  await sendToTopic(
+    providerChatId,
+    topicId,
+    `${intakeSummary}\n\n${renderTemplate("provider/topic-opening")}`
+  )
 
   console.log("[cases] accepted", {
     caseId: caseRecord.id,

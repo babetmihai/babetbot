@@ -7,7 +7,7 @@ Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI ·
 ## Client flow
 
 1. Client messages the bot in a private DM. A LangGraph intake agent collects required goals, answers firm FAQ via RAG, and saves extra notes.
-2. Intake goals are stored by the agent through `update_user_goal` only — no separate pre-agent extraction pipeline. Derived goals (e.g. `practice_area`) are inferred after `description` is saved.
+2. Intake goals are stored by the agent through `update_user_goal` only — no separate pre-agent extraction pipeline. Derived goals (e.g. `practice_area`) are inferred from the client discussion via `llm/infer-{goalKey}` templates.
 3. When all required goals are complete (including `consent=yes`), the bot broadcasts the case to all onboarded providers. The first provider to accept gets the client.
 4. The bot opens a forum topic in the provider's private chat with the bot (Telegram Threaded Mode) and posts the intake summary.
 5. Client messages and files stay in DM; the bot relays them to the provider's case topic. Provider replies in the topic are forwarded to the client DM.

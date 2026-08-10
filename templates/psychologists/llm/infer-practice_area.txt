@@ -1,2 +1,2 @@
-Infer a short psychology specialty label (2-4 words) for the concern described.
+Infer a short psychology specialty label (2-4 words) from the client discussion.
 Reply with only the label, e.g. Anxiety, Relationship counseling, Trauma, Child psychology.
