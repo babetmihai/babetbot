@@ -1,4 +1,4 @@
-import supabase from "./supabase.js"
+import db from "./firestore.js"
 import { INTAKE_FEE_AMOUNT_CENTS, STRIPE_CURRENCY } from "../config.js"
 import { escalateToProvider, fetchActiveCase } from "./cases.js"
 import { mergeUserGoals } from "./goals.js"
@@ -14,10 +14,10 @@ import {
 
 
 export type PaymentRecord = {
-  id: number
+  id: string
   clientTelegramId: string
   clientChatId: number
-  caseId: number | null
+  caseId: string | null
   stripeSessionId: string
   stripePaymentIntentId: string | null
   amountCents: number
@@ -28,65 +28,55 @@ export type PaymentRecord = {
 }
 
 
-const paymentSelect = "id, client_telegram_id, client_chat_id, case_id, stripe_session_id, stripe_payment_intent_id, amount_cents, currency, status, kind, description"
-
 export const formatPaymentAmount = (amountCents, currency) => {
   const major = (amountCents / 100).toFixed(2)
   return `${major} ${currency.toUpperCase()}`
 }
 
 export const fetchPaidIntakeFee = async (clientTelegramId) => {
-  const { data, error } = await supabase
-    .from("payments")
-    .select(paymentSelect)
-    .eq("client_telegram_id", clientTelegramId)
-    .eq("kind", "intake_fee")
-    .eq("status", "paid")
-    .is("case_id", null)
-    .order("paid_at", { ascending: false })
+  const snapshot = await db.collection("payments")
+    .where("clientTelegramId", "==", clientTelegramId)
+    .where("kind", "==", "intake_fee")
+    .where("status", "==", "paid")
+    .where("caseId", "==", null)
+    .orderBy("paidAt", "desc")
     .limit(1)
-    .maybeSingle()
+    .get()
 
-  if (error) throw error
-  return data ? mapRow(data) : null
+  if (snapshot.empty) return null
+  return mapPaymentDoc(snapshot.docs[0])
 }
 
 export const linkIntakePaymentToCase = async (clientTelegramId, caseId) => {
-  const { error } = await supabase
-    .from("payments")
-    .update({ case_id: caseId })
-    .eq("client_telegram_id", clientTelegramId)
-    .eq("kind", "intake_fee")
-    .eq("status", "paid")
-    .is("case_id", null)
+  const snapshot = await db.collection("payments")
+    .where("clientTelegramId", "==", clientTelegramId)
+    .where("kind", "==", "intake_fee")
+    .where("status", "==", "paid")
+    .where("caseId", "==", null)
+    .get()
 
-  if (error) throw error
+  for (const doc of snapshot.docs) {
+    await doc.ref.update({ caseId })
+  }
 }
 
 export const fetchPendingIntakePayment = async (clientTelegramId) => {
-  const { data, error } = await supabase
-    .from("payments")
-    .select(paymentSelect)
-    .eq("client_telegram_id", clientTelegramId)
-    .eq("kind", "intake_fee")
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
+  const snapshot = await db.collection("payments")
+    .where("clientTelegramId", "==", clientTelegramId)
+    .where("kind", "==", "intake_fee")
+    .where("status", "==", "pending")
+    .orderBy("createdAt", "desc")
     .limit(1)
-    .maybeSingle()
+    .get()
 
-  if (error) throw error
-  return data ? mapRow(data) : null
+  if (snapshot.empty) return null
+  return mapPaymentDoc(snapshot.docs[0])
 }
 
 export const fetchPaymentById = async (paymentId) => {
-  const { data, error } = await supabase
-    .from("payments")
-    .select(paymentSelect)
-    .eq("id", paymentId)
-    .maybeSingle()
-
-  if (error) throw error
-  return data ? mapRow(data) : null
+  const doc = await db.collection("payments").doc(paymentId).get()
+  if (!doc.exists) return null
+  return mapPaymentDoc(doc)
 }
 
 export const requestIntakePayment = async (clientTelegramId, clientChatId) => {
@@ -99,24 +89,24 @@ export const requestIntakePayment = async (clientTelegramId, clientChatId) => {
   }
 
   const session = await createIntakeCheckoutSession(clientTelegramId, clientChatId)
-  const { data, error } = await supabase
-    .from("payments")
-    .insert({
-      client_telegram_id: clientTelegramId,
-      client_chat_id: clientChatId,
-      case_id: null,
-      stripe_session_id: session.id,
-      amount_cents: INTAKE_FEE_AMOUNT_CENTS,
-      currency: STRIPE_CURRENCY,
-      status: "pending",
-      kind: "intake_fee",
-      description: "Intake fee"
-    })
-    .select(paymentSelect)
-    .single()
+  const ref = await db.collection("payments").add({
+    clientTelegramId,
+    clientChatId,
+    caseId: null,
+    stripeSessionId: session.id,
+    stripePaymentIntentId: null,
+    amountCents: INTAKE_FEE_AMOUNT_CENTS,
+    currency: STRIPE_CURRENCY,
+    status: "pending",
+    kind: "intake_fee",
+    description: "Intake fee",
+    createdAt: new Date().toISOString(),
+    paidAt: null,
+    refundedAt: null
+  })
 
-  if (error) throw error
-  return { payment: mapRow(data), checkoutUrl: session.url }
+  const payment = await fetchPaymentById(ref.id)
+  return { payment, checkoutUrl: session.url }
 }
 
 export const createProviderPaymentRequest = async (caseRecord, provider, amountCents, description) => {
@@ -128,25 +118,23 @@ export const createProviderPaymentRequest = async (caseRecord, provider, amountC
     description
   })
 
-  const { data, error } = await supabase
-    .from("payments")
-    .insert({
-      client_telegram_id: caseRecord.clientTelegramId,
-      client_chat_id: caseRecord.clientChatId,
-      case_id: caseRecord.id,
-      stripe_session_id: session.id,
-      amount_cents: amountCents,
-      currency: STRIPE_CURRENCY,
-      status: "pending",
-      kind: "provider_request",
-      description
-    })
-    .select(paymentSelect)
-    .single()
+  const ref = await db.collection("payments").add({
+    clientTelegramId: caseRecord.clientTelegramId,
+    clientChatId: caseRecord.clientChatId,
+    caseId: caseRecord.id,
+    stripeSessionId: session.id,
+    stripePaymentIntentId: null,
+    amountCents,
+    currency: STRIPE_CURRENCY,
+    status: "pending",
+    kind: "provider_request",
+    description,
+    createdAt: new Date().toISOString(),
+    paidAt: null,
+    refundedAt: null
+  })
 
-  if (error) throw error
-
-  const payment = mapRow(data)
+  const payment = await fetchPaymentById(ref.id)
   const amountLabel = formatPaymentAmount(amountCents, STRIPE_CURRENCY)
   const descriptionLine = description ? `For: ${description}\n` : ""
   const clientText = renderTemplate("payment/provider-request", {
@@ -169,60 +157,57 @@ export const sendPaymentLink = async (chatId, message, checkoutUrl) => {
 }
 
 export const completePaymentFromSession = async (session) => {
-  const { data: existing, error: fetchError } = await supabase
-    .from("payments")
-    .select(paymentSelect)
-    .eq("stripe_session_id", session.id)
-    .maybeSingle()
+  const snapshot = await db.collection("payments")
+    .where("stripeSessionId", "==", session.id)
+    .limit(1)
+    .get()
 
-  if (fetchError) throw fetchError
-  if (!existing) return null
+  if (snapshot.empty) return null
 
-  let payment = mapRow(existing)
+  const existingDoc = snapshot.docs[0]
+  let payment = mapPaymentDoc(existingDoc)
 
-  if (existing.status === "paid") {
+  if (existingDoc.data().status === "paid") {
     if (payment.kind === "intake_fee") {
       await handlePaidIntakeFee(payment)
     }
     return payment
   }
 
-  if (existing.status === "refunded") return payment
+  if (existingDoc.data().status === "refunded") return payment
 
   const paymentIntentId = getPaymentIntentId(session)
+  const paidAt = new Date().toISOString()
 
-  const { data: updated, error } = await supabase
-    .from("payments")
-    .update({
+  const updated = await db.runTransaction(async (tx) => {
+    const current = await tx.get(existingDoc.ref)
+    if (!current.exists) return null
+    if (current.data().status !== "pending") return null
+
+    tx.update(existingDoc.ref, {
       status: "paid",
-      paid_at: new Date().toISOString(),
-      stripe_payment_intent_id: paymentIntentId
+      paidAt,
+      stripePaymentIntentId: paymentIntentId
     })
-    .eq("stripe_session_id", session.id)
-    .eq("status", "pending")
-    .select(paymentSelect)
-    .maybeSingle()
 
-  if (error) throw error
+    return mapPaymentDoc(current)
+  })
 
   if (!updated) {
-    const { data: refetched, error: refetchError } = await supabase
-      .from("payments")
-      .select(paymentSelect)
-      .eq("stripe_session_id", session.id)
-      .maybeSingle()
-
-    if (refetchError) throw refetchError
+    const refetched = await fetchPaymentById(existingDoc.id)
     if (!refetched || refetched.status !== "paid") return null
 
-    payment = mapRow(refetched)
-    if (payment.kind === "intake_fee") {
-      await handlePaidIntakeFee(payment)
+    if (refetched.kind === "intake_fee") {
+      await handlePaidIntakeFee(refetched)
     }
-    return payment
+    return refetched
   }
 
-  payment = mapRow(updated)
+  payment = {
+    ...updated,
+    status: "paid",
+    stripePaymentIntentId: paymentIntentId
+  }
 
   if (payment.kind === "intake_fee") {
     await handlePaidIntakeFee(payment)
@@ -272,16 +257,11 @@ const handlePaidProviderRequest = async (payment) => {
 
   if (!payment.caseId) return
 
-  const { data: caseRow, error } = await supabase
-    .from("cases")
-    .select("group_chat_id, topic_id")
-    .eq("id", payment.caseId)
-    .maybeSingle()
+  const caseDoc = await db.collection("cases").doc(payment.caseId).get()
+  if (!caseDoc.exists) return
 
-  if (error) throw error
-  if (!caseRow) return
-
-  await sendPaymentConfirmationToTopic(caseRow.group_chat_id, caseRow.topic_id, payment)
+  const data = caseDoc.data()
+  await sendPaymentConfirmationToTopic(data.groupChatId, data.topicId, payment)
 }
 
 export const notifyPaidIntakeFeeInTopic = async (caseRecord) => {
@@ -322,22 +302,28 @@ export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId,
 
   await refundStripePayment(paymentIntentId)
 
-  const { data: updated, error } = await supabase
-    .from("payments")
-    .update({
-      status: "refunded",
-      refunded_at: new Date().toISOString(),
-      stripe_payment_intent_id: paymentIntentId
-    })
-    .eq("id", paymentId)
-    .eq("status", "paid")
-    .select(paymentSelect)
-    .maybeSingle()
+  const paymentRef = db.collection("payments").doc(paymentId)
+  const updated = await db.runTransaction(async (tx) => {
+    const current = await tx.get(paymentRef)
+    if (!current.exists) return null
+    if (current.data().status !== "paid") return null
 
-  if (error) throw error
+    tx.update(paymentRef, {
+      status: "refunded",
+      refundedAt: new Date().toISOString(),
+      stripePaymentIntentId: paymentIntentId
+    })
+
+    return mapPaymentDoc(current)
+  })
+
   if (!updated) return { toast: "This payment was already refunded." }
 
-  const refunded = mapRow(updated)
+  const refunded = {
+    ...updated,
+    status: "refunded",
+    stripePaymentIntentId: paymentIntentId
+  }
   const amountLabel = formatPaymentAmount(refunded.amountCents, refunded.currency)
 
   await telegram.sendMessage(
@@ -398,16 +384,19 @@ const getPaymentIntentId = (session) => {
 const retrieveCheckoutUrl = async (sessionId) =>
   stripe.checkout.sessions.retrieve(sessionId)
 
-const mapRow = (row) => ({
-  id: row.id,
-  clientTelegramId: row.client_telegram_id,
-  clientChatId: row.client_chat_id,
-  caseId: row.case_id,
-  stripeSessionId: row.stripe_session_id,
-  stripePaymentIntentId: row.stripe_payment_intent_id,
-  amountCents: row.amount_cents,
-  currency: row.currency,
-  status: row.status,
-  kind: row.kind,
-  description: row.description
-})
+const mapPaymentDoc = (doc) => {
+  const data = doc.data()
+  return {
+    id: doc.id,
+    clientTelegramId: data.clientTelegramId,
+    clientChatId: data.clientChatId,
+    caseId: data.caseId ?? null,
+    stripeSessionId: data.stripeSessionId,
+    stripePaymentIntentId: data.stripePaymentIntentId ?? null,
+    amountCents: data.amountCents,
+    currency: data.currency,
+    status: data.status,
+    kind: data.kind,
+    description: data.description
+  }
+}

@@ -1,10 +1,9 @@
-import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase"
 import { Document } from "@langchain/core/documents"
 import { OpenAIEmbeddings } from "@langchain/openai"
-import supabase from "./supabase.js"
 import path from "path"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
+import db, { FieldValue, deleteQueryDocs } from "./firestore.js"
 import { KB_USER_ID, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.js"
 
 
@@ -13,23 +12,29 @@ export const embeddings = new OpenAIEmbeddings({
   model: "text-embedding-3-small"
 })
 
-export const vectorStore = new SupabaseVectorStore(embeddings, {
-  client: supabase,
-  tableName: "documents",
-  queryName: "match_documents"
-})
-
 const rag = {
   list: async (userId, query, count = 5, extraFilter = {}) => {
-    const results = await vectorStore.similaritySearch(query, count, {
-      user_id: userId,
-      ...extraFilter
-    })
+    const queryEmbedding = await embeddings.embedQuery(query)
 
-    return results.map((row) => ({
-      pageContent: row.pageContent,
-      metadata: row.metadata ?? {}
-    }))
+    let collectionQuery = db.collection("documents").where("user_id", "==", userId)
+    for (const [key, value] of Object.entries(extraFilter)) {
+      collectionQuery = collectionQuery.where(key, "==", value)
+    }
+
+    const snapshot = await collectionQuery.findNearest({
+      vectorField: "embedding",
+      queryVector: queryEmbedding,
+      limit: count,
+      distanceMeasure: "COSINE"
+    }).get()
+
+    return snapshot.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        pageContent: data.content ?? "",
+        metadata: data.metadata ?? {}
+      }
+    })
   },
 
   listForIntake: async (clientUserId, query, count = 6) => {
@@ -67,7 +72,7 @@ const rag = {
       Object.assign(chunk.metadata, extraMetadata)
     }
 
-    await vectorStore.addDocuments(chunks)
+    await addDocuments(chunks)
   },
 
   ingestFirmPdf: async (filePath) => {
@@ -88,23 +93,27 @@ const rag = {
       }
     })
 
-    await vectorStore.addDocuments([doc])
+    await addDocuments([doc])
   },
 
   listRecent: async (userId, count = 8, extraFilter = {}) => {
-    const { data, error } = await supabase
-      .from("documents")
-      .select("content, metadata")
-      .contains("metadata", { user_id: userId, ...extraFilter })
-      .order("id", { ascending: false })
+    let query = db.collection("documents").where("user_id", "==", userId)
+    for (const [key, value] of Object.entries(extraFilter)) {
+      query = query.where(key, "==", value)
+    }
+
+    const snapshot = await query
+      .orderBy("created_at", "desc")
       .limit(count)
+      .get()
 
-    if (error) throw error
-
-    return (data ?? []).map((row) => ({
-      pageContent: row.content ?? "",
-      metadata: row.metadata ?? {}
-    }))
+    return snapshot.docs.map((doc) => {
+      const data = doc.data()
+      return {
+        pageContent: data.content ?? "",
+        metadata: data.metadata ?? {}
+      }
+    })
   },
 
   saveConversationTurn: async (userId, role, content) => {
@@ -118,12 +127,11 @@ const rag = {
   },
 
   deleteByFilter: async (userId, extraFilter = {}) => {
-    const { error } = await supabase
-      .from("documents")
-      .delete()
-      .contains("metadata", { user_id: userId, ...extraFilter })
-
-    if (error) throw error
+    let query = db.collection("documents").where("user_id", "==", userId)
+    for (const [key, value] of Object.entries(extraFilter)) {
+      query = query.where(key, "==", value)
+    }
+    await deleteQueryDocs(query)
   },
 
   replaceGoal: async (userId, goalKey, content, metadata = {}) => {
@@ -133,6 +141,40 @@ const rag = {
 }
 
 export default rag
+
+const addDocuments = async (docs) => {
+  const texts = docs.map((doc) => doc.pageContent)
+  const vectors = await embeddings.embedDocuments(texts)
+
+  let batch = db.batch()
+  let count = 0
+
+  for (let i = 0; i < docs.length; i += 1) {
+    const metadata = docs[i].metadata ?? {}
+    const ref = db.collection("documents").doc()
+    batch.set(ref, {
+      content: docs[i].pageContent,
+      embedding: FieldValue.vector(vectors[i]),
+      metadata,
+      user_id: metadata.user_id,
+      scope: metadata.scope ?? null,
+      type: metadata.type ?? null,
+      goal_key: metadata.goal_key ?? null,
+      role: metadata.role ?? null,
+      source: metadata.source ?? null,
+      created_at: metadata.created_at ?? new Date().toISOString()
+    })
+    count += 1
+
+    if (count >= 400) {
+      await batch.commit()
+      batch = db.batch()
+      count = 0
+    }
+  }
+
+  if (count > 0) await batch.commit()
+}
 
 const dedupeResults = (results) => {
   const seen = new Set()

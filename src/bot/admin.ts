@@ -11,7 +11,7 @@ bot.on("callback_query", async (ctx, next) => {
   if (!data.startsWith("pjoin:")) return next()
 
   const parts = data.split(":")
-  const requestId = Number(parts[1])
+  const requestId = parts[1]
   const action = parts[2]
 
   if (!requestId || !action) {

@@ -38,4 +38,6 @@ downloads
 .env
 env.json*
 .firebase
+*firebase-adminsdk*.json
 .ngrok-listener.json
+credentials.json

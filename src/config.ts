@@ -6,15 +6,14 @@ export const TELEGRAM_SECRET_TOKEN = process.env.TELEGRAM_SECRET_TOKEN
 export const NGROK_AUTH_TOKEN = process.env.NGROK_AUTH_TOKEN
 export const PORT = process.env.PORT
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-export const SUPABASE_URL = process.env.SUPABASE_URL
-export const SUPABASE_KEY = process.env.SUPABASE_KEY
-export const SUPABASE_POSTGRES_URL = process.env.SUPABASE_POSTGRES_URL
 
 const requiredEnv = (key) => {
   const value = process.env[key]
   if (!value) throw new Error(`Missing required env: ${key}`)
   return value
 }
+
+export const FIREBASE_PROJECT_ID = requiredEnv("FIREBASE_PROJECT_ID")
 
 export const STRIPE_SECRET_KEY = requiredEnv("STRIPE_SECRET_KEY")
 export const STRIPE_WEBHOOK_SECRET = requiredEnv("STRIPE_WEBHOOK_SECRET")

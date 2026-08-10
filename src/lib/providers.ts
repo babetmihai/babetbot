@@ -1,64 +1,49 @@
 import { ADMIN_TELEGRAM_IDS, isAdmin } from "../config.js"
-import supabase from "./supabase.js"
+import db from "./firestore.js"
 import { renderTemplate } from "./templates.js"
 import { telegram } from "./telegram.js"
 
 
 export type Provider = {
-  id: number
+  id: string
   name: string
   telegramUserId: string
   telegramUsername: string | null
   botStartedAt: string | null
 }
 
-const providerSelect = "id, name, telegram_user_id, telegram_username, bot_started_at"
-const signupSelect = "id, telegram_user_id, telegram_username, name, status"
-
 export const fetchProviders = async () => {
-  const { data, error } = await supabase
-    .from("providers")
-    .select(providerSelect)
-
-  if (error) throw error
-  return (data ?? []).map(mapRow)
+  const snapshot = await db.collection("providers").get()
+  return snapshot.docs.map(mapProviderDoc)
 }
 
 export const fetchProvider = async (id) => {
-  const { data, error } = await supabase
-    .from("providers")
-    .select(providerSelect)
-    .eq("id", id)
-    .maybeSingle()
-
-  if (error) throw error
-  return data ? mapRow(data) : null
+  const doc = await db.collection("providers").doc(id).get()
+  if (!doc.exists) return null
+  return mapProviderDoc(doc)
 }
 
 export const fetchProviderByTelegramUserId = async (telegramUserId) => {
-  const { data, error } = await supabase
-    .from("providers")
-    .select(providerSelect)
-    .eq("telegram_user_id", telegramUserId)
-    .maybeSingle()
+  const snapshot = await db.collection("providers")
+    .where("telegramUserId", "==", telegramUserId)
+    .limit(1)
+    .get()
 
-  if (error) throw error
-  return data ? mapRow(data) : null
+  if (snapshot.empty) return null
+  return mapProviderDoc(snapshot.docs[0])
 }
 
 export const markProviderBotStarted = async (telegramUserId) => {
-  const { data, error } = await supabase
-    .from("providers")
-    .update({ bot_started_at: new Date().toISOString() })
-    .eq("telegram_user_id", telegramUserId)
-    .is("bot_started_at", null)
-    .select(providerSelect)
-    .maybeSingle()
+  const provider = await fetchProviderByTelegramUserId(telegramUserId)
+  if (!provider) return null
 
-  if (error) throw error
-  if (data) return mapRow(data)
+  if (!provider.botStartedAt) {
+    const botStartedAt = new Date().toISOString()
+    await db.collection("providers").doc(provider.id).update({ botStartedAt })
+    return { ...provider, botStartedAt }
+  }
 
-  return fetchProviderByTelegramUserId(telegramUserId)
+  return provider
 }
 
 export const fetchOnboardedProviders = async () => {
@@ -67,18 +52,25 @@ export const fetchOnboardedProviders = async () => {
 }
 
 export const createProvider = async (input) => {
-  const { data, error } = await supabase
-    .from("providers")
-    .upsert({
-      name: input.name.trim(),
-      telegram_user_id: input.telegramUserId,
-      telegram_username: input.telegramUsername ?? null
-    }, { onConflict: "telegram_user_id" })
-    .select(providerSelect)
-    .single()
+  const existing = await fetchProviderByTelegramUserId(input.telegramUserId)
+  const payload = {
+    name: input.name.trim(),
+    telegramUserId: input.telegramUserId,
+    telegramUsername: input.telegramUsername ?? null
+  }
 
-  if (error) throw error
-  return mapRow(data)
+  if (existing) {
+    await db.collection("providers").doc(existing.id).set(payload, { merge: true })
+    return fetchProvider(existing.id)
+  }
+
+  const ref = await db.collection("providers").add({
+    ...payload,
+    botStartedAt: null,
+    createdAt: new Date().toISOString()
+  })
+
+  return fetchProvider(ref.id)
 }
 
 export const formatProviderMention = (provider) => {
@@ -194,88 +186,79 @@ export const respondToProviderSignupRequest = async (requestId, adminTelegramUse
   }
 }
 
-const mapRow = (row) => ({
-  id: row.id,
-  name: row.name,
-  telegramUserId: row.telegram_user_id,
-  telegramUsername: row.telegram_username,
-  botStartedAt: row.bot_started_at
-})
+const mapProviderDoc = (doc) => {
+  const data = doc.data()
+  return {
+    id: doc.id,
+    name: data.name,
+    telegramUserId: data.telegramUserId,
+    telegramUsername: data.telegramUsername ?? null,
+    botStartedAt: data.botStartedAt ?? null
+  }
+}
 
-const mapSignupRow = (row) => ({
-  id: row.id,
-  telegramUserId: row.telegram_user_id,
-  telegramUsername: row.telegram_username,
-  name: row.name,
-  status: row.status
-})
+const mapSignupDoc = (doc) => {
+  const data = doc.data()
+  return {
+    id: doc.id,
+    telegramUserId: data.telegramUserId,
+    telegramUsername: data.telegramUsername ?? null,
+    name: data.name,
+    status: data.status
+  }
+}
 
 const fetchProviderSignupRequest = async (requestId) => {
-  const { data, error } = await supabase
-    .from("provider_signup_requests")
-    .select(signupSelect)
-    .eq("id", requestId)
-    .maybeSingle()
-
-  if (error) throw error
-  return data ? mapSignupRow(data) : null
+  const doc = await db.collection("provider_signup_requests").doc(requestId).get()
+  if (!doc.exists) return null
+  return mapSignupDoc(doc)
 }
 
 const fetchProviderSignupRequestByTelegramUserId = async (telegramUserId) => {
-  const { data, error } = await supabase
-    .from("provider_signup_requests")
-    .select(signupSelect)
-    .eq("telegram_user_id", telegramUserId)
-    .maybeSingle()
+  const snapshot = await db.collection("provider_signup_requests")
+    .where("telegramUserId", "==", telegramUserId)
+    .limit(1)
+    .get()
 
-  if (error) throw error
-  return data ? mapSignupRow(data) : null
+  if (snapshot.empty) return null
+  return mapSignupDoc(snapshot.docs[0])
 }
 
 const insertProviderSignupRequest = async (input) => {
-  const { data, error } = await supabase
-    .from("provider_signup_requests")
-    .insert({
-      telegram_user_id: input.telegramUserId,
-      telegram_username: input.telegramUsername ?? null,
-      name: input.name.trim(),
-      status: "pending"
-    })
-    .select(signupSelect)
-    .single()
+  const ref = await db.collection("provider_signup_requests").add({
+    telegramUserId: input.telegramUserId,
+    telegramUsername: input.telegramUsername ?? null,
+    name: input.name.trim(),
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    resolvedAt: null
+  })
 
-  if (error) throw error
-  return mapSignupRow(data)
+  return fetchProviderSignupRequest(ref.id)
 }
 
 const reopenProviderSignupRequest = async (requestId, input) => {
-  const { data, error } = await supabase
-    .from("provider_signup_requests")
-    .update({
-      name: input.name.trim(),
-      telegram_username: input.telegramUsername ?? null,
-      status: "pending",
-      resolved_at: null
-    })
-    .eq("id", requestId)
-    .select(signupSelect)
-    .single()
+  await db.collection("provider_signup_requests").doc(requestId).update({
+    name: input.name.trim(),
+    telegramUsername: input.telegramUsername ?? null,
+    status: "pending",
+    resolvedAt: null
+  })
 
-  if (error) throw error
-  return mapSignupRow(data)
+  return fetchProviderSignupRequest(requestId)
 }
 
 const resolveProviderSignupRequest = async (requestId, status) => {
-  const { error } = await supabase
-    .from("provider_signup_requests")
-    .update({
+  const ref = db.collection("provider_signup_requests").doc(requestId)
+  await db.runTransaction(async (tx) => {
+    const doc = await tx.get(ref)
+    if (!doc.exists) return
+    if (doc.data().status !== "pending") return
+    tx.update(ref, {
       status,
-      resolved_at: new Date().toISOString()
+      resolvedAt: new Date().toISOString()
     })
-    .eq("id", requestId)
-    .eq("status", "pending")
-
-  if (error) throw error
+  })
 }
 
 const notifyAdminsOfProviderSignupRequest = async (request) => {

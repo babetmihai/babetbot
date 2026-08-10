@@ -2,7 +2,7 @@
 
 Telegram bot for professional-services client intake, payment, and provider relay. Ships with copy for law firms (`lawyers`) and psychologists (`psychologists`); generic defaults live in `base`.
 
-Node · TypeScript · Express · Telegraf · LangGraph · Supabase (Postgres + pgvector) · OpenAI · Stripe.
+Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI · Stripe.
 
 ## Client flow
 
@@ -32,7 +32,7 @@ If no providers are onboarded, or all providers decline, admins are notified and
 
 ## Admin
 
-- Upload firm FAQ PDFs to the bot in DM (admin Telegram IDs only). PDFs are chunked, embedded, and stored in Supabase for RAG.
+- Upload firm FAQ PDFs to the bot in DM (admin Telegram IDs only). PDFs are chunked, embedded, and stored in Firestore for RAG.
 - Approve or decline provider signup requests via inline buttons.
 
 ## Agent tools
@@ -43,13 +43,66 @@ If no providers are onboarded, or all providers decline, admins are notified and
 | `save_user_information` | Save extra intake notes not covered by goals |
 | `user_information_retrieval` | Search firm FAQ + client notes/goals during intake |
 
-Agent conversation state is checkpointed in Postgres (`SUPABASE_POSTGRES_URL`).
+Agent conversation state is checkpointed in Firestore (`agent_checkpoints` / `agent_writes`). Goal definitions are hardcoded in `src/lib/goals.ts`.
+
+## Firestore
+
+Standard edition, Native mode. Auth via ADC or `GOOGLE_APPLICATION_CREDENTIALS`; set `FIREBASE_PROJECT_ID` in `.env`.
+
+### Collections
+
+| Collection | Purpose |
+| --- | --- |
+| `user_goal_values` | Per-client intake answers (`userId`, `goalKey`, `value`) |
+| `providers` | Registered providers |
+| `provider_signup_requests` | Admin approve/decline queue |
+| `provider_case_offer_batches` | Broadcast offer batches |
+| `provider_case_offer_batches/{id}/messages` | Per-provider offer Telegram messages |
+| `cases` | Active/closed client ↔ provider cases |
+| `payments` | Stripe checkout rows |
+| `documents` | RAG chunks + vector embeddings |
+| `agent_checkpoints` | LangGraph thread checkpoints |
+| `agent_writes` | LangGraph pending writes |
+
+### Vector indexes
+
+Create a vector index on `documents.embedding` (dimension **1536**, distance **COSINE**), plus composites for RAG pre-filters (`user_id`, and `user_id` + `scope`):
+
+```bash
+gcloud firestore indexes composite create \
+  --collection-group=documents \
+  --query-scope=COLLECTION \
+  --field-config field-path=user_id,order=ASCENDING \
+  --field-config field-path=embedding,vector-config='{"dimension":"1536","flat": "{}"}' \
+  --database='(default)'
+```
+
+Or use the console link when a query fails for a missing index.
+
+### Composite indexes
+
+Create as prompted by Firestore when running the app, including roughly:
+
+- `cases`: `clientTelegramId` + `status` + `createdAt`
+- `cases`: `groupChatId` + `topicId` + `status`
+- `provider_case_offer_batches`: `clientTelegramId` + `status`
+- `payments`: `clientTelegramId` + `kind` + `status` + `caseId` + `paidAt`
+- `payments`: `clientTelegramId` + `kind` + `status` + `createdAt`
+- `documents`: `user_id` + `created_at`
+- `documents`: `user_id` + `type` + `created_at`
+- `documents`: `user_id` + `type` + `goal_key`
+- `documents`: `user_id` + `scope`
+- `agent_checkpoints`: `threadId` + `checkpointNs` + `checkpointId`
+- `agent_checkpoints`: `threadId` + `checkpointId`
+- `agent_writes`: `threadId` + `checkpointNs` + `checkpointId`
+
+Single-field equality lookups (`providers.telegramUserId`, `payments.stripeSessionId`, `user_goal_values.userId`, …) are automatic.
 
 ## Setup
 
 1. Enable **Threaded Mode** for the bot in @BotFather.
-2. Run `schemas/init.sql` in Supabase (tables, goal definitions, pgvector).
-3. Copy `.env` from a teammate or create one from the env list below.
+2. Create a Firestore **Standard** (Native mode) database and create the indexes above.
+3. Copy `.env` from a teammate or create one from the env list below. Authenticate with ADC or `GOOGLE_APPLICATION_CREDENTIALS`.
 4. `npm install` then `npm start` — Express serves Telegram and Stripe webhooks via ngrok.
 5. Local Stripe webhooks: set `STRIPE_DEV=1` and run `npm run stripe` in a second terminal.
 
@@ -68,8 +121,7 @@ Required at startup:
 | `NGROK_AUTH_TOKEN` | Tunnel for local webhooks |
 | `PORT` | Express port (default `8080`) |
 | `OPENAI_API_KEY` | Agent, RAG embeddings, analysis |
-| `SUPABASE_URL` / `SUPABASE_KEY` | Supabase client |
-| `SUPABASE_POSTGRES_URL` | LangGraph checkpointer |
+| `FIREBASE_PROJECT_ID` | Firebase / Firestore project |
 | `KB_USER_ID` | Vector-store user id for firm FAQ docs |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Payments |
 | `INTAKE_FEE_AMOUNT_CENTS` | Fixed intake fee (e.g. `15000` = 150.00) |
@@ -83,3 +135,4 @@ Optional:
 | `STRIPE_DEV` | off | `1` = skip live Stripe webhook registration |
 | `STRIPE_CURRENCY` | `ron` | Checkout currency |
 | `ADMIN_TELEGRAM_IDS` | — | Comma-separated admin Telegram user ids |
+| `GOOGLE_APPLICATION_CREDENTIALS` | ADC | Path to Firebase service-account JSON |

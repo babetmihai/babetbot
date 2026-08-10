@@ -1,4 +1,4 @@
-import supabase from "./supabase.js"
+import db from "./firestore.js"
 import { ADMIN_TELEGRAM_IDS } from "../config.js"
 import { resetAgentThread } from "./checkpointer.js"
 import {
@@ -26,10 +26,10 @@ import {
 
 
 export type CaseRecord = {
-  id: number
+  id: string
   clientTelegramId: string
   clientChatId: number
-  providerId: number
+  providerId: string
   groupChatId: number
   topicId: number
   status: "active" | "closed"
@@ -38,61 +38,52 @@ export type CaseRecord = {
 
 const notifiedIntakeBlocks = new Set()
 
-const caseSelect = "id, client_telegram_id, client_chat_id, provider_id, group_chat_id, topic_id, status, intake_summary"
-const batchSelect = "id, client_telegram_id, client_chat_id, status, accepted_provider_id"
-const offerMessageSelect = "id, batch_id, provider_id, chat_id, message_id, status"
-
 
 export const fetchActiveCase = async (clientTelegramId) => {
-  const { data, error } = await supabase
-    .from("cases")
-    .select(caseSelect)
-    .eq("client_telegram_id", clientTelegramId)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
+  const snapshot = await db.collection("cases")
+    .where("clientTelegramId", "==", clientTelegramId)
+    .where("status", "==", "active")
+    .orderBy("createdAt", "desc")
     .limit(1)
-    .maybeSingle()
+    .get()
 
-  if (error) throw error
-  return data ? mapCaseRow(data) : null
+  if (snapshot.empty) return null
+  return mapCaseDoc(snapshot.docs[0])
 }
 
 export const fetchActiveCaseInTopic = async (groupChatId, topicId) => {
-  const { data, error } = await supabase
-    .from("cases")
-    .select(caseSelect)
-    .eq("group_chat_id", groupChatId)
-    .eq("topic_id", topicId)
-    .eq("status", "active")
-    .maybeSingle()
+  const snapshot = await db.collection("cases")
+    .where("groupChatId", "==", groupChatId)
+    .where("topicId", "==", topicId)
+    .where("status", "==", "active")
+    .limit(1)
+    .get()
 
-  if (error) throw error
-  return data ? mapCaseRow(data) : null
+  if (snapshot.empty) return null
+  return mapCaseDoc(snapshot.docs[0])
 }
 
 export const fetchClosedCaseInTopic = async (groupChatId, topicId) => {
-  const { data, error } = await supabase
-    .from("cases")
-    .select(caseSelect)
-    .eq("group_chat_id", groupChatId)
-    .eq("topic_id", topicId)
-    .eq("status", "closed")
-    .maybeSingle()
+  const snapshot = await db.collection("cases")
+    .where("groupChatId", "==", groupChatId)
+    .where("topicId", "==", topicId)
+    .where("status", "==", "closed")
+    .limit(1)
+    .get()
 
-  if (error) throw error
-  return data ? mapCaseRow(data) : null
+  if (snapshot.empty) return null
+  return mapCaseDoc(snapshot.docs[0])
 }
 
 export const fetchPendingOfferBatch = async (clientTelegramId) => {
-  const { data, error } = await supabase
-    .from("provider_case_offer_batches")
-    .select(batchSelect)
-    .eq("client_telegram_id", clientTelegramId)
-    .eq("status", "pending")
-    .maybeSingle()
+  const snapshot = await db.collection("provider_case_offer_batches")
+    .where("clientTelegramId", "==", clientTelegramId)
+    .where("status", "==", "pending")
+    .limit(1)
+    .get()
 
-  if (error) throw error
-  return data ? mapBatchRow(data) : null
+  if (snapshot.empty) return null
+  return mapBatchDoc(snapshot.docs[0])
 }
 
 export const isReadyForEscalation = (userGoals) => {
@@ -132,17 +123,14 @@ export const notifyIntakeProviderBlocked = async (clientTelegramId, userGoals, a
 }
 
 export const closeCase = async (caseId) => {
-  const { data, error } = await supabase
-    .from("cases")
-    .update({ status: "closed", closed_at: new Date().toISOString() })
-    .eq("id", caseId)
-    .select(caseSelect)
-    .maybeSingle()
+  const ref = db.collection("cases").doc(caseId)
+  const closedAt = new Date().toISOString()
+  await ref.update({ status: "closed", closedAt })
 
-  if (error) throw error
-  if (!data) return null
+  const doc = await ref.get()
+  if (!doc.exists) return null
 
-  const caseRecord = mapCaseRow(data)
+  const caseRecord = mapCaseDoc(doc)
 
   await telegram.sendMessage(
     Number(caseRecord.clientTelegramId),
@@ -215,25 +203,39 @@ const startProviderOfferBatch = async (clientTelegramId, clientChatId, userGoals
   }
 
   const { availableProviders } = availability
+  const batchRef = db.collection("provider_case_offer_batches").doc()
 
-  const { data: batchRow, error: batchError } = await supabase
-    .from("provider_case_offer_batches")
-    .insert({
-      client_telegram_id: clientTelegramId,
-      client_chat_id: clientChatId,
-      status: "pending"
+  const created = await db.runTransaction(async (tx) => {
+    const pending = await tx.get(
+      db.collection("provider_case_offer_batches")
+        .where("clientTelegramId", "==", clientTelegramId)
+        .where("status", "==", "pending")
+        .limit(1)
+    )
+    if (!pending.empty) return null
+
+    tx.set(batchRef, {
+      clientTelegramId,
+      clientChatId,
+      status: "pending",
+      acceptedProviderId: null,
+      createdAt: new Date().toISOString(),
+      acceptedAt: null
     })
-    .select(batchSelect)
-    .single()
+    return true
+  })
 
-  if (batchError) {
-    if (batchError.code === "23505") {
-      return renderTemplate("client/waiting-for-provider")
-    }
-    throw batchError
+  if (!created) {
+    return renderTemplate("client/waiting-for-provider")
   }
 
-  const batch = mapBatchRow(batchRow)
+  const batch = {
+    id: batchRef.id,
+    clientTelegramId,
+    clientChatId,
+    status: "pending",
+    acceptedProviderId: null
+  }
   const offerText = buildProviderOfferText(userGoals)
 
   for (const provider of availableProviders) {
@@ -247,15 +249,13 @@ const startProviderOfferBatch = async (clientTelegramId, clientChatId, userGoals
       }
     })
 
-    await supabase
-      .from("provider_case_offer_messages")
-      .insert({
-        batch_id: batch.id,
-        provider_id: provider.id,
-        chat_id: chatId,
-        message_id: sent.message_id,
-        status: "pending"
-      })
+    await batchRef.collection("messages").doc(provider.id).set({
+      batchId: batch.id,
+      providerId: provider.id,
+      chatId,
+      messageId: sent.message_id,
+      status: "pending"
+    })
   }
 
   return renderTemplate("client/waiting-for-provider")
@@ -267,38 +267,40 @@ const acceptProviderOffer = async (batchId, providerTelegramUserId) => {
     return { toast: renderTemplate("bot/not-onboarded") }
   }
 
-  const { data: offerMessage, error: offerError } = await supabase
-    .from("provider_case_offer_messages")
-    .select(offerMessageSelect)
-    .eq("batch_id", batchId)
-    .eq("provider_id", provider.id)
-    .maybeSingle()
-
-  if (offerError) throw offerError
-  if (!offerMessage) {
+  const offerRef = db.collection("provider_case_offer_batches").doc(batchId)
+    .collection("messages").doc(provider.id)
+  const offerDoc = await offerRef.get()
+  if (!offerDoc.exists) {
     return { toast: "This offer is not for you." }
   }
 
-  const { data: claimed, error: claimError } = await supabase
-    .from("provider_case_offer_batches")
-    .update({
-      status: "accepted",
-      accepted_provider_id: provider.id,
-      accepted_at: new Date().toISOString()
-    })
-    .eq("id", batchId)
-    .eq("status", "pending")
-    .select(batchSelect)
-    .maybeSingle()
+  const offerMessage = mapOfferDoc(offerDoc)
+  const batchRef = db.collection("provider_case_offer_batches").doc(batchId)
 
-  if (claimError) throw claimError
+  const claimed = await db.runTransaction(async (tx) => {
+    const batchDoc = await tx.get(batchRef)
+    if (!batchDoc.exists) return null
+    if (batchDoc.data().status !== "pending") return null
+
+    tx.update(batchRef, {
+      status: "accepted",
+      acceptedProviderId: provider.id,
+      acceptedAt: new Date().toISOString()
+    })
+
+    return mapBatchDoc(batchDoc)
+  })
 
   if (!claimed) {
-    await dismissOfferMessage(offerMessage.chat_id, offerMessage.message_id)
+    await dismissOfferMessage(offerMessage.chatId, offerMessage.messageId)
     return { toast: "This case was already taken." }
   }
 
-  const batch = mapBatchRow(claimed)
+  const batch = {
+    ...claimed,
+    status: "accepted",
+    acceptedProviderId: provider.id
+  }
   const userGoals = await mergeUserGoals(batch.clientTelegramId)
   const { clientMessage } = await finalizeAcceptedCase(
     batch.clientTelegramId,
@@ -307,13 +309,9 @@ const acceptProviderOffer = async (batchId, providerTelegramUserId) => {
     provider
   )
 
-  await supabase
-    .from("provider_case_offer_messages")
-    .update({ status: "accepted" })
-    .eq("id", offerMessage.id)
-
+  await offerRef.update({ status: "accepted" })
   await dismissOtherOfferMessages(batchId, provider.id)
-  await dismissOfferMessage(offerMessage.chat_id, offerMessage.message_id)
+  await dismissOfferMessage(offerMessage.chatId, offerMessage.messageId)
 
   await telegram.sendMessage(batch.clientChatId, clientMessage)
 
@@ -326,58 +324,43 @@ const declineProviderOffer = async (batchId, providerTelegramUserId) => {
     return { toast: renderTemplate("bot/not-registered") }
   }
 
-  const { data: batch, error: batchError } = await supabase
-    .from("provider_case_offer_batches")
-    .select(batchSelect)
-    .eq("id", batchId)
-    .maybeSingle()
-
-  if (batchError) throw batchError
-  if (!batch || batch.status !== "pending") {
+  const batchRef = db.collection("provider_case_offer_batches").doc(batchId)
+  const batchDoc = await batchRef.get()
+  if (!batchDoc.exists || batchDoc.data().status !== "pending") {
     return { toast: "This offer is no longer available." }
   }
 
-  const { data: offerMessage, error: offerError } = await supabase
-    .from("provider_case_offer_messages")
-    .select(offerMessageSelect)
-    .eq("batch_id", batchId)
-    .eq("provider_id", provider.id)
-    .maybeSingle()
-
-  if (offerError) throw offerError
-  if (!offerMessage || offerMessage.status !== "pending") {
+  const batch = mapBatchDoc(batchDoc)
+  const offerRef = batchRef.collection("messages").doc(provider.id)
+  const offerDoc = await offerRef.get()
+  if (!offerDoc.exists || offerDoc.data().status !== "pending") {
     return { toast: "This offer is not for you." }
   }
 
-  await supabase
-    .from("provider_case_offer_messages")
-    .update({ status: "declined" })
-    .eq("id", offerMessage.id)
+  const offerMessage = mapOfferDoc(offerDoc)
+  await offerRef.update({ status: "declined" })
+  await dismissOfferMessage(offerMessage.chatId, offerMessage.messageId)
 
-  await dismissOfferMessage(offerMessage.chat_id, offerMessage.message_id)
+  const remaining = await batchRef.collection("messages")
+    .where("status", "==", "pending")
+    .limit(1)
+    .get()
 
-  const { data: remaining, error: remainingError } = await supabase
-    .from("provider_case_offer_messages")
-    .select("id")
-    .eq("batch_id", batchId)
-    .eq("status", "pending")
+  if (remaining.empty) {
+    await db.runTransaction(async (tx) => {
+      const current = await tx.get(batchRef)
+      if (!current.exists) return
+      if (current.data().status !== "pending") return
+      tx.update(batchRef, { status: "exhausted" })
+    })
 
-  if (remainingError) throw remainingError
-
-  if (!remaining.length) {
-    await supabase
-      .from("provider_case_offer_batches")
-      .update({ status: "exhausted" })
-      .eq("id", batchId)
-      .eq("status", "pending")
-
-    const userGoals = await mergeUserGoals(batch.client_telegram_id)
+    const userGoals = await mergeUserGoals(batch.clientTelegramId)
     await notifyFirmIntakeIssue(userGoals, renderTemplate("admin/all-declined", {
       intakeSummary: buildIntakeSummary(userGoals)
     }))
 
     await telegram.sendMessage(
-      batch.client_chat_id,
+      batch.clientChatId,
       renderTemplate("client/all-declined")
     )
   }
@@ -389,36 +372,51 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
   const providerChatId = Number(provider.telegramUserId)
   const topicId = await createForumTopic(providerChatId, "New case")
   const intakeSummary = buildIntakeSummary(userGoals)
+  const caseRef = db.collection("cases").doc()
 
-  const { data, error } = await supabase
-    .from("cases")
-    .insert({
-      client_telegram_id: clientTelegramId,
-      client_chat_id: clientChatId,
-      provider_id: provider.id,
-      group_chat_id: providerChatId,
-      topic_id: topicId,
+  const racedCase = await db.runTransaction(async (tx) => {
+    const active = await tx.get(
+      db.collection("cases")
+        .where("clientTelegramId", "==", clientTelegramId)
+        .where("status", "==", "active")
+        .limit(1)
+    )
+    if (!active.empty) return mapCaseDoc(active.docs[0])
+
+    tx.set(caseRef, {
+      clientTelegramId,
+      clientChatId,
+      providerId: provider.id,
+      groupChatId: providerChatId,
+      topicId,
       status: "active",
-      intake_summary: intakeSummary
+      intakeSummary,
+      createdAt: new Date().toISOString(),
+      closedAt: null
     })
-    .select(caseSelect)
-    .single()
+    return null
+  })
 
-  if (error) {
-    if (error.code === "23505") {
-      const racedCase = await fetchActiveCase(clientTelegramId)
-      if (!racedCase) throw error
-      const { linkIntakePaymentToCase } = await import("./payments.js")
-      await linkIntakePaymentToCase(clientTelegramId, racedCase.id)
-      return {
-        caseRecord: racedCase,
-        clientMessage: buildConnectedClientMessage(provider)
-      }
+  if (racedCase) {
+    const { linkIntakePaymentToCase } = await import("./payments.js")
+    await linkIntakePaymentToCase(clientTelegramId, racedCase.id)
+    return {
+      caseRecord: racedCase,
+      clientMessage: buildConnectedClientMessage(provider)
     }
-    throw error
   }
 
-  const caseRecord = mapCaseRow(data)
+  const caseRecord = {
+    id: caseRef.id,
+    clientTelegramId,
+    clientChatId,
+    providerId: provider.id,
+    groupChatId: providerChatId,
+    topicId,
+    status: "active",
+    intakeSummary
+  }
+
   await editForumTopic(providerChatId, topicId, buildCaseTopicName(caseRecord.id))
   await sendToTopic(providerChatId, topicId, intakeSummary)
   await sendToTopic(providerChatId, topicId, renderTemplate("provider/topic-opening"))
@@ -452,21 +450,16 @@ const notifyFirmIntakeIssue = async (userGoals, text) => {
 }
 
 const dismissOtherOfferMessages = async (batchId, winningProviderId) => {
-  const { data: messages, error } = await supabase
-    .from("provider_case_offer_messages")
-    .select(offerMessageSelect)
-    .eq("batch_id", batchId)
-    .neq("provider_id", winningProviderId)
-    .eq("status", "pending")
+  const snapshot = await db.collection("provider_case_offer_batches").doc(batchId)
+    .collection("messages")
+    .where("status", "==", "pending")
+    .get()
 
-  if (error) throw error
-
-  for (const row of messages ?? []) {
-    await dismissOfferMessage(row.chat_id, row.message_id)
-    await supabase
-      .from("provider_case_offer_messages")
-      .update({ status: "dismissed" })
-      .eq("id", row.id)
+  for (const doc of snapshot.docs) {
+    if (doc.id === winningProviderId) continue
+    const offer = mapOfferDoc(doc)
+    await dismissOfferMessage(offer.chatId, offer.messageId)
+    await doc.ref.update({ status: "dismissed" })
   }
 }
 
@@ -489,21 +482,39 @@ const buildCaseTopicName = (caseId, closed = false) => {
   return `${prefix}Case #${caseId}`
 }
 
-const mapCaseRow = (row) => ({
-  id: row.id,
-  clientTelegramId: row.client_telegram_id,
-  clientChatId: row.client_chat_id,
-  providerId: row.provider_id,
-  groupChatId: row.group_chat_id,
-  topicId: row.topic_id,
-  status: row.status,
-  intakeSummary: row.intake_summary
-})
+const mapCaseDoc = (doc) => {
+  const data = doc.data()
+  return {
+    id: doc.id,
+    clientTelegramId: data.clientTelegramId,
+    clientChatId: data.clientChatId,
+    providerId: data.providerId,
+    groupChatId: data.groupChatId,
+    topicId: data.topicId,
+    status: data.status,
+    intakeSummary: data.intakeSummary ?? null
+  }
+}
 
-const mapBatchRow = (row) => ({
-  id: row.id,
-  clientTelegramId: row.client_telegram_id,
-  clientChatId: row.client_chat_id,
-  status: row.status,
-  acceptedProviderId: row.accepted_provider_id
-})
+const mapBatchDoc = (doc) => {
+  const data = doc.data()
+  return {
+    id: doc.id,
+    clientTelegramId: data.clientTelegramId,
+    clientChatId: data.clientChatId,
+    status: data.status,
+    acceptedProviderId: data.acceptedProviderId ?? null
+  }
+}
+
+const mapOfferDoc = (doc) => {
+  const data = doc.data()
+  return {
+    id: doc.id,
+    batchId: data.batchId,
+    providerId: data.providerId,
+    chatId: data.chatId,
+    messageId: data.messageId,
+    status: data.status
+  }
+}

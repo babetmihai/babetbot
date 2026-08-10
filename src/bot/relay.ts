@@ -164,7 +164,7 @@ bot.on("callback_query", async (ctx, next) => {
   const data = ctx.callbackQuery.data
 
   if (data.startsWith("analyze:")) {
-    const caseId = Number(data.split(":")[1])
+    const caseId = data.split(":")[1]
     if (!caseId) {
       await ctx.answerCbQuery("Invalid analyze action.")
       return
@@ -205,7 +205,7 @@ bot.on("callback_query", async (ctx, next) => {
   }
 
   if (data.startsWith("refund:")) {
-    const paymentId = Number(data.split(":")[1])
+    const paymentId = data.split(":")[1]
     if (!paymentId) {
       await ctx.answerCbQuery("Invalid refund action.")
       return
@@ -243,7 +243,7 @@ bot.on("callback_query", async (ctx, next) => {
   if (!data.startsWith("poffer:")) return next()
 
   const parts = data.split(":")
-  const batchId = Number(parts[1])
+  const batchId = parts[1]
   const action = parts[2]
 
   if (!batchId || !action) {

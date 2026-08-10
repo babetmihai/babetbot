@@ -3,7 +3,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages"
 import { ChatOpenAI } from "@langchain/openai"
 import { z } from "zod"
 import _ from "lodash"
-import supabase from "./supabase.js"
+import db, { deleteQueryDocs } from "./firestore.js"
 import rag from "./rag.js"
 import { CONSENT_YES_VALUE, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.js"
 import { type TToolConfig } from "./agent.js"
@@ -32,41 +32,49 @@ export const isDeclinedGoalValue = (value) => {
   return normalized === DECLINED_GOAL_VALUE
 }
 
-let cachedGoalDefinitions = null
-
-export const fetchGoalDefinitions = async () => {
-  if (cachedGoalDefinitions) return cachedGoalDefinitions
-
-  const { data, error } = await supabase
-    .from("goal_definitions")
-    .select("goal_key, label, description, prompt, priority, goal_type, target_goal_key")
-    .order("priority")
-
-  if (error) throw error
-
-  cachedGoalDefinitions = (data ?? []).map(mapDefinitionRow).map(applyGoalTemplatePrompt)
-  return cachedGoalDefinitions
-}
+const GOAL_DEFINITIONS: GoalDefinition[] = [
+  {
+    key: "description",
+    label: "Situation description",
+    description: "A brief description of their situation or what they need help with.",
+    goalType: "collect",
+    targetGoalKey: null,
+    priority: 10
+  },
+  {
+    key: "consent",
+    label: "Consent",
+    description: "Whether the client agrees to share their intake information with an assigned provider, after being told they must pay an intake fee before connecting with a provider.",
+    goalType: "collect",
+    targetGoalKey: null,
+    priority: 20
+  },
+  {
+    key: "practice_area",
+    label: "Focus area",
+    description: "The focus area, inferred from the client's description.",
+    goalType: "derive",
+    targetGoalKey: "description",
+    priority: 30
+  }
+]
 
 export const fetchUserGoalValues = async (userId) => {
-  const { data, error } = await supabase
-    .from("user_goal_values")
-    .select("goal_key, value")
-    .eq("user_id", userId)
+  const snapshot = await db.collection("user_goal_values")
+    .where("userId", "==", userId)
+    .get()
 
-  if (error) throw error
-
-  return _.fromPairs(_.map(data ?? [], (row) => [row.goal_key, row.value]))
+  return _.fromPairs(snapshot.docs.map((doc) => {
+    const data = doc.data()
+    return [data.goalKey, data.value]
+  }))
 }
 
 export const mergeUserGoals = async (userId) => {
-  const [definitions, values] = await Promise.all([
-    fetchGoalDefinitions(),
-    fetchUserGoalValues(userId)
-  ])
+  const values = await fetchUserGoalValues(userId)
 
-  return definitions.map((definition) => ({
-    ...definition,
+  return GOAL_DEFINITIONS.map((definition) => ({
+    ...applyGoalTemplatePrompt(definition),
     value: values[definition.key] ?? null
   }))
 }
@@ -160,27 +168,18 @@ export const syncDerivedGoals = async (userId, userGoals) => {
 }
 
 export const resetClientIntake = async (userId) => {
-  const { error } = await supabase
-    .from("user_goal_values")
-    .delete()
-    .eq("user_id", userId)
-
-  if (error) throw error
-
+  await deleteQueryDocs(db.collection("user_goal_values").where("userId", "==", userId))
   await rag.deleteByFilter(userId, { scope: KB_SCOPE.client })
 }
 
 export const setUserGoalValue = async (userId, goalKey, value, goal) => {
-  const { error } = await supabase
-    .from("user_goal_values")
-    .upsert({
-      user_id: userId,
-      goal_key: goalKey,
-      value,
-      updated_at: new Date().toISOString()
-    }, { onConflict: "user_id,goal_key" })
-
-  if (error) throw error
+  const docId = `${userId}_${goalKey}`
+  await db.collection("user_goal_values").doc(docId).set({
+    userId,
+    goalKey,
+    value,
+    updatedAt: new Date().toISOString()
+  })
 
   const ragGoal = goal ?? { key: goalKey, label: goalKey }
   await rag.replaceGoal(userId, goalKey, buildGoalRagContent(ragGoal, value), {
@@ -263,16 +262,6 @@ const buildGoalRagContent = (goal, value) =>
   isDeclinedGoalValue(value)
     ? `User declined to share their ${goal.label.toLowerCase()}.`
     : `User's ${goal.label.toLowerCase()}: ${value.trim()}`
-
-const mapDefinitionRow = (row) => ({
-  key: row.goal_key,
-  label: row.label,
-  description: row.description,
-  prompt: row.prompt,
-  priority: row.priority,
-  goalType: row.goal_type,
-  targetGoalKey: row.target_goal_key
-})
 
 const inferPracticeAreaFromDescription = async (description) => {
   const llm = new ChatOpenAI({
