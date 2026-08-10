@@ -1,8 +1,16 @@
-import { ADMIN_TELEGRAM_IDS, isAdmin } from "../config.ts"
 import db from "./firestore.ts"
 import { renderTemplate } from "./templates.ts"
 import { telegram } from "./telegram.ts"
 
+
+const { ADMIN_TELEGRAM_IDS } = process.env
+const adminTelegramIds = ADMIN_TELEGRAM_IDS
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean)
+
+const isAdmin = (telegramUserId) =>
+  adminTelegramIds.includes(telegramUserId)
 
 export type Provider = {
   id: string
@@ -276,7 +284,7 @@ const notifyAdminsOfProviderSignupRequest = async (request) => {
     ]]
   }
 
-  for (const adminId of ADMIN_TELEGRAM_IDS) {
+  for (const adminId of adminTelegramIds) {
     try {
       await telegram.sendMessage(Number(adminId), text, { reply_markup: keyboard })
     } catch (error) {

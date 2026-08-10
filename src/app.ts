@@ -1,16 +1,17 @@
 import express from "express"
 import bot from "./bot/index.ts"
-import { TELEGRAM_SECRET_TOKEN } from "./config.ts"
 import { completePaymentFromSession } from "./lib/payments.ts"
 import { verifyStripeWebhook } from "./lib/stripe.ts"
 
 
-export const botPath = "/bot/webhook"
-export const stripeWebhookPath = "/stripe/webhook"
+const { TELEGRAM_SECRET_TOKEN } = process.env
+
+export const BOT_WEBHOOK_PATH = "/bot/webhook"
+export const STRIPE_WEBHOOK_PATH = "/stripe/webhook"
 
 const app = express()
 
-app.post(stripeWebhookPath, express.raw({ type: "application/json" }), async (req, res) => {
+app.post(STRIPE_WEBHOOK_PATH, express.raw({ type: "application/json" }), async (req, res) => {
   const signature = req.headers["stripe-signature"]
   if (!signature || typeof signature !== "string") {
     return res.sendStatus(400)
@@ -30,7 +31,7 @@ app.post(stripeWebhookPath, express.raw({ type: "application/json" }), async (re
   }
 })
 
-app.use(botPath, (req, res, next) => {
+app.use(BOT_WEBHOOK_PATH, (req, res, next) => {
   const secretToken = req.headers["x-telegram-bot-api-secret-token"]
   if (secretToken !== TELEGRAM_SECRET_TOKEN) {
     console.log("Invalid secret token")
@@ -39,7 +40,7 @@ app.use(botPath, (req, res, next) => {
   next()
 })
 
-app.use(bot.webhookCallback(botPath))
+app.use(bot.webhookCallback(BOT_WEBHOOK_PATH))
 
 app.use((error, req, res, next) => {
   console.error(error)
@@ -50,7 +51,7 @@ app.use((error, req, res, next) => {
 export default app
 
 export const registerTelegramWebhook = async (baseUrl) => {
-  const botUrl = `${baseUrl}${botPath}`
+  const botUrl = `${baseUrl}${BOT_WEBHOOK_PATH}`
   await bot.telegram.setWebhook(botUrl, {
     secret_token: TELEGRAM_SECRET_TOKEN
   })

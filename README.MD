@@ -114,7 +114,7 @@ Same Express app as local. Dev entry is `src/index.ts` (ngrok + `app.listen`); p
 3. `npm run deploy` — builds `src/` → `dist/` and deploys the `api` function
 
 On instance init, the function registers Telegram/Stripe webhooks to
-`https://europe-west1-{project}.cloudfunctions.net/api`. Override with `PUBLIC_BASE_URL` if needed.
+`https://europe-west1-{project}.cloudfunctions.net/api`.
 
 ## Templates
 
@@ -139,12 +139,6 @@ Local only:
 | --- | --- |
 | `NGROK_AUTH_TOKEN` | Tunnel for local webhooks |
 | `PORT` | Express port (default `8080`) |
-
-Production only:
-
-| Variable | Purpose |
-| --- | --- |
-| `PUBLIC_BASE_URL` | Optional override for the public function URL used to register webhooks |
 
 Optional:
 

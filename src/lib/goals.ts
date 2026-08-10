@@ -4,11 +4,17 @@ import { ChatOpenAI } from "@langchain/openai"
 import { z } from "zod"
 import _ from "lodash"
 import db, { deleteQueryDocs } from "./firestore.ts"
-import rag from "./rag.ts"
-import { CONSENT_YES_VALUE, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.ts"
+import rag, { KB_SCOPE, PROMPT_TYPES } from "./rag.ts"
 import type { TToolConfig } from "./agent.ts"
 import { loadJsonTemplate, loadTemplate } from "./templates.ts"
 
+
+const {
+  OPENAI_API_KEY,
+  AGENT_MODEL
+} = process.env
+
+export const CONSENT_YES_VALUE = "yes"
 
 export type GoalDefinition = {
   key: string
@@ -260,7 +266,7 @@ const buildDiscussionContext = async (userId, latestMessage = "") => {
 const inferDerivedGoalValue = async (goal, discussion) => {
   const llm = new ChatOpenAI({
     apiKey: OPENAI_API_KEY,
-    model: process.env.AGENT_MODEL ?? "gpt-4o-mini",
+    model: AGENT_MODEL,
     temperature: 0
   })
 

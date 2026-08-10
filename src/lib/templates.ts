@@ -3,16 +3,17 @@ import path from "path"
 import { PromptTemplate } from "@langchain/core/prompts"
 
 
+const { TEMPLATE_FOLDER } = process.env
+
 const templatesRoot = path.join(process.cwd(), "templates")
-const templateFolder = process.env.TEMPLATE_FOLDER || "base"
 const cache = new Map()
 
 const resolveTemplatePath = (name, ext = "txt") => {
   const key = name.replace(new RegExp(`\\.${ext}$`), "")
   const relativePath = `${key}.${ext}`
 
-  if (templateFolder && templateFolder !== "base") {
-    const overridePath = path.join(templatesRoot, templateFolder, relativePath)
+  if (TEMPLATE_FOLDER !== "base") {
+    const overridePath = path.join(templatesRoot, TEMPLATE_FOLDER, relativePath)
     if (existsSync(overridePath)) return overridePath
   }
 
@@ -42,6 +43,8 @@ export const renderTemplate = (name, vars = {}) => {
   }
   return text.trim()
 }
+
+export const LEGAL_DISCLAIMER = renderTemplate("shared/legal-disclaimer")
 
 export const formatPromptTemplate = async (name, vars = {}) => {
   const template = PromptTemplate.fromTemplate(loadTemplate(name))

@@ -7,10 +7,14 @@ import handleToolErrors from "./middleware/handleToolErrors.ts"
 import memoryMiddleware from "./middleware/memory.ts"
 import user_information_retrieval from "./tools/user_information_retrieval.ts"
 import save_user_information from "./tools/save_user_information.ts"
-import { OPENAI_API_KEY, LEGAL_DISCLAIMER } from "../config.ts"
-import { renderTemplate } from "./templates.ts"
+import { LEGAL_DISCLAIMER, renderTemplate } from "./templates.ts"
 import type { UserGoal } from "./goals.ts"
 
+
+const {
+  OPENAI_API_KEY,
+  AGENT_MODEL
+} = process.env
 
 export type TAgentContext = {
   userId: string
@@ -34,7 +38,6 @@ export type TToolConfig = {
 }
 
 
-export const AGENT_MODEL = process.env.AGENT_MODEL ?? "gpt-4o-mini"
 export const AGENT_TIMEOUT_MS = 45_000
 export const AGENT_TOOL_CALL_LIMIT = 4
 export const AGENT_MODEL_CALL_LIMIT = 5

@@ -1,6 +1,7 @@
 import admin from "firebase-admin"
-import { FIREBASE_PROJECT_ID } from "../config.ts"
 
+
+const { FIREBASE_PROJECT_ID } = process.env
 
 if (!admin.apps.length) {
   admin.initializeApp({ projectId: FIREBASE_PROJECT_ID })

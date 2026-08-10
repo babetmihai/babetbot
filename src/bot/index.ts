@@ -3,15 +3,16 @@ import textBot from "./text.ts"
 import uploadBot from "./upload.ts"
 import relayBot from "./relay.ts"
 import adminBot from "./admin.ts"
-import { TELEGRAM_BOT_TOKEN, LEGAL_DISCLAIMER } from "../config.ts"
 import {
   buildProviderWelcomeText,
   fetchProviderByTelegramUserId,
   markProviderBotStarted,
   submitProviderSignupRequest
 } from "../lib/providers.ts"
-import { renderTemplate } from "../lib/templates.ts"
+import { LEGAL_DISCLAIMER, renderTemplate } from "../lib/templates.ts"
 
+
+const { TELEGRAM_BOT_TOKEN } = process.env
 
 export const bot = new Telegraf(TELEGRAM_BOT_TOKEN)
 

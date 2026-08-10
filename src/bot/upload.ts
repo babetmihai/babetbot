@@ -3,12 +3,17 @@ import fs from "fs"
 import axios from "axios"
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
-import { isAdmin } from "../config.ts"
 import { fetchActiveCase } from "../lib/cases.ts"
 import { relayClientFile } from "../lib/relay.ts"
 import { renderTemplate } from "../lib/templates.ts"
 import rag from "../lib/rag.ts"
 
+
+const { ADMIN_TELEGRAM_IDS } = process.env
+const adminTelegramIds = ADMIN_TELEGRAM_IDS
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean)
 
 const bot = new Composer()
 
@@ -19,7 +24,7 @@ bot.on(message("document"), async (ctx) => {
     const userId = ctx.from.id.toString()
     const doc = ctx.message.document
 
-    if (isAdmin(userId)) {
+    if (adminTelegramIds.includes(userId)) {
       if (doc.mime_type !== "application/pdf") {
         await ctx.reply("Only PDF files are supported for the firm knowledge base.")
         return

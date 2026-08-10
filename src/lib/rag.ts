@@ -4,8 +4,24 @@ import path from "path"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
 import db, { FieldValue, deleteQueryDocs } from "./firestore.ts"
-import { KB_USER_ID, KB_SCOPE, OPENAI_API_KEY, PROMPT_TYPES } from "../config.ts"
 
+
+const {
+  KB_USER_ID,
+  OPENAI_API_KEY
+} = process.env
+
+export const PROMPT_TYPES = {
+  goal: "goal",
+  note: "note",
+  question: "question",
+  conversation: "conversation"
+}
+
+export const KB_SCOPE = {
+  firm: "firm",
+  client: "client"
+} as const
 
 export const embeddings = new OpenAIEmbeddings({
   apiKey: OPENAI_API_KEY,

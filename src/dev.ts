@@ -1,8 +1,13 @@
+import "dotenv/config"
 import ngrok from "@ngrok/ngrok"
 import app, { registerTelegramWebhook } from "./app.ts"
-import { NGROK_AUTH_TOKEN, PORT } from "./config.ts"
 import { disableStripeWebhook } from "./lib/stripe.ts"
 
+
+const {
+  NGROK_AUTH_TOKEN,
+  PORT
+} = process.env
 
 const init = async () => {
   try {

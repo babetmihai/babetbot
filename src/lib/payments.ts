@@ -1,5 +1,4 @@
 import db from "./firestore.ts"
-import { STRIPE_CURRENCY } from "../config.ts"
 import { fetchProvider } from "./providers.ts"
 import { renderTemplate } from "./templates.ts"
 import { sendToTopic, telegram } from "./telegram.ts"
@@ -9,6 +8,9 @@ import {
   stripe
 } from "./stripe.ts"
 
+
+const { STRIPE_CURRENCY } = process.env
+const stripeCurrency = STRIPE_CURRENCY.toLowerCase()
 
 export type PaymentRecord = {
   id: string
@@ -52,7 +54,7 @@ export const createProviderPaymentRequest = async (caseRecord, provider, amountC
     stripeSessionId: session.id,
     stripePaymentIntentId: null,
     amountCents,
-    currency: STRIPE_CURRENCY,
+    currency: stripeCurrency,
     status: "pending",
     kind: "provider_request",
     description,
@@ -62,7 +64,7 @@ export const createProviderPaymentRequest = async (caseRecord, provider, amountC
   })
 
   const payment = await fetchPaymentById(ref.id)
-  const amountLabel = formatPaymentAmount(amountCents, STRIPE_CURRENCY)
+  const amountLabel = formatPaymentAmount(amountCents, stripeCurrency)
   const descriptionLine = description ? `For: ${description}\n` : ""
   const clientText = renderTemplate("payment/provider-request", {
     providerName: provider.name,

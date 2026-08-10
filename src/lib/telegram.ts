@@ -1,8 +1,9 @@
 import { Telegram } from "telegraf"
-import { TELEGRAM_BOT_TOKEN } from "../config.ts"
 
 
-export const telegram = new Telegram(TELEGRAM_BOT_TOKEN!)
+const { TELEGRAM_BOT_TOKEN } = process.env
+
+export const telegram = new Telegram(TELEGRAM_BOT_TOKEN)
 
 export const createForumTopic = async (chatId, name) => {
   const result = await telegram.callApi("createForumTopic", {

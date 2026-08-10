@@ -1,5 +1,4 @@
 import db from "./firestore.ts"
-import { ADMIN_TELEGRAM_IDS } from "../config.ts"
 import { resetAgentThread } from "./checkpointer.ts"
 import {
   areIntakeGoalsComplete,
@@ -23,6 +22,9 @@ import {
   sendToTopic,
   telegram
 } from "./telegram.ts"
+
+
+const { ADMIN_TELEGRAM_IDS } = process.env
 
 
 export type CaseRecord = {
@@ -448,7 +450,12 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, p
 }
 
 const notifyFirmIntakeIssue = async (userGoals, text) => {
-  for (const adminId of ADMIN_TELEGRAM_IDS) {
+  const adminTelegramIds = ADMIN_TELEGRAM_IDS
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+
+  for (const adminId of adminTelegramIds) {
     try {
       await telegram.sendMessage(Number(adminId), text)
     } catch (error) {

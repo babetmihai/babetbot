@@ -1,6 +1,5 @@
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
-import { STRIPE_CURRENCY } from "../config.ts"
 import {
   closeCase,
   deleteClosedCaseTopic,
@@ -19,6 +18,9 @@ import { fetchProvider } from "../lib/providers.ts"
 import { renderTemplate } from "../lib/templates.ts"
 import { fetchBotId } from "../lib/telegram.ts"
 
+
+const { STRIPE_CURRENCY } = process.env
+const stripeCurrency = STRIPE_CURRENCY.toLowerCase()
 
 const bot = new Composer()
 
@@ -91,7 +93,7 @@ bot.command("pay", async (ctx, next) => {
     parsed.description
   )
 
-  const amountLabel = formatPaymentAmount(payment.amountCents, STRIPE_CURRENCY)
+  const amountLabel = formatPaymentAmount(payment.amountCents, stripeCurrency)
   await ctx.reply(`Payment link sent to client (${amountLabel}).`)
 })
 

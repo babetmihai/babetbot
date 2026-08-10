@@ -1,7 +1,6 @@
 import { tool } from "@langchain/core/tools"
 import { z } from "zod"
-import rag from "../rag.ts"
-import { KB_SCOPE, PROMPT_TYPES } from "../../config.ts"
+import rag, { KB_SCOPE, PROMPT_TYPES } from "../rag.ts"
 import type { TToolConfig } from "../agent.ts"
 
 

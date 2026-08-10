@@ -4,18 +4,20 @@ import axios from "axios"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
 import { HumanMessage } from "@langchain/core/messages"
 import { ChatOpenAI } from "@langchain/openai"
-import { OPENAI_API_KEY, PROMPT_TYPES } from "../config.ts"
 import type { CaseRecord } from "./cases.ts"
-import rag from "./rag.ts"
+import rag, { PROMPT_TYPES } from "./rag.ts"
 import { loadTemplate, renderTemplate } from "./templates.ts"
 import { telegram } from "./telegram.ts"
 
 
-const ANALYZE_MODEL = process.env.AGENT_MODEL ?? "gpt-4o-mini"
+const {
+  OPENAI_API_KEY,
+  AGENT_MODEL
+} = process.env
 
 const llm = new ChatOpenAI({
   apiKey: OPENAI_API_KEY,
-  model: ANALYZE_MODEL,
+  model: AGENT_MODEL,
   temperature: 0.2
 })
 

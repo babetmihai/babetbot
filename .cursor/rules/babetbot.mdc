@@ -14,7 +14,8 @@ Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI. E
 1. **Simplicity** — smallest design that works. One owner per write/concern; no parallel pipelines or backup paths unless asked. Intake saves go through agent tools (`update_user_goal` + `validateGoalValue`) only — no classifier/regex pre-pipeline. Validate at save time.
 2. **Minimal scope** — do only what was asked; small localized diff; no refactor, docs, tests, or abstractions unless asked. Ask before future-proofing or broadening fixes.
 3. **Direct code** — assume valid inputs and required env (throw at startup, not silent defaults). No defensive `?.`/`??` fallbacks for data that should exist. `try/catch` only when the caller must recover; catch variable `error`; use `error.message` (no `instanceof` checks); one try/catch per recoverable step.
-4. **Few layers** — inline logic used once; no thin wrappers or rename aliases. Extract helpers only at 2+ uses. Prefer lodash (`import _ from "lodash"`) at the call site for transforms (`keyBy`, `find`, `merge`, etc.) over one-off helpers.
+4. **Single init source** — one documented way per value; no `a || b || c` env/config chains. Read `process.env` immediately after the last import (two blank lines below), no central env re-exports, no hardcoded defaults. Multi-var: multiline destructure, not inline. Function base URL is built from region + `FIREBASE_PROJECT_ID` + function name.
+5. **Few layers** — inline logic used once; no thin wrappers or rename aliases. Extract helpers only at 2+ uses. Prefer lodash (`import _ from "lodash"`) at the call site for transforms (`keyBy`, `find`, `merge`, etc.) over one-off helpers.
 
 ## Code style
 
