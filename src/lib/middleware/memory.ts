@@ -7,9 +7,10 @@ import {
   getMissingGoals,
   getRequiredIntakeGoals,
   mergeUserGoals,
-  syncDerivedGoals
+  syncDerivedGoals,
+  UserGoalSchema
 } from "../goals.ts"
-import { UserGoalSchema, type TAgentRuntime } from "../agent.ts"
+import type { TAgentRuntime } from "../agent.ts"
 import { loadTemplate } from "../templates.ts"
 
 const GOAL_COLLECTION_RULES = loadTemplate("agent/goal-collection-rules").trim()

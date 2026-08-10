@@ -8,7 +8,7 @@ import memoryMiddleware from "./middleware/memory.ts"
 import user_information_retrieval from "./tools/user_information_retrieval.ts"
 import save_user_information from "./tools/save_user_information.ts"
 import { LEGAL_DISCLAIMER, renderTemplate } from "./templates.ts"
-import type { UserGoal } from "./goals.ts"
+import { UserGoalSchema, type UserGoal } from "./goals.ts"
 
 
 const {
@@ -55,16 +55,6 @@ const llm = new ChatOpenAI({
 })
 
 const systemPrompt = renderTemplate("agent/intake-system", { legalDisclaimer: LEGAL_DISCLAIMER })
-
-export const UserGoalSchema = z.object({
-  key: z.string(),
-  label: z.string(),
-  description: z.string(),
-  prompt: z.string().nullable().optional(),
-  value: z.string().nullable().default(null),
-  priority: z.number().optional(),
-  goalType: z.string().optional()
-})
 
 export const agent = createAgent({
   systemPrompt,

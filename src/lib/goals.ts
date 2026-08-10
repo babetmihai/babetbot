@@ -29,6 +29,16 @@ export type UserGoal = GoalDefinition & {
   value: string | null
 }
 
+export const UserGoalSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  description: z.string(),
+  prompt: z.string().nullable().optional(),
+  value: z.string().nullable().default(null),
+  priority: z.number().optional(),
+  goalType: z.string().optional()
+})
+
 
 export const DECLINED_GOAL_VALUE = "declined"
 
