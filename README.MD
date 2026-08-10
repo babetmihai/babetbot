@@ -102,8 +102,19 @@ Single-field equality lookups (`providers.telegramUserId`, `payments.stripeSessi
 1. Enable **Threaded Mode** for the bot in @BotFather.
 2. Create a Firestore **Standard** (Native mode) database and create the indexes above.
 3. Copy `.env` from a teammate or create one from the env list below. Authenticate with ADC or `GOOGLE_APPLICATION_CREDENTIALS`.
-4. `npm install` then `npm start` — Express serves Telegram and Stripe webhooks via ngrok.
+4. `npm install` then `npm start` — local Express + ngrok for Telegram/Stripe webhooks.
 5. Local Stripe webhooks: set `STRIPE_DEV=1` and run `npm run stripe` in a second terminal.
+
+## Production (Firebase Functions)
+
+Same Express app as local. Dev entry is `src/index.ts` (ngrok + `app.listen`); production entry is `src/functions.ts` (`onRequest`).
+
+1. `npm install` and `firebase login`
+2. Set function env/secrets in Firebase (same vars as `.env`)
+3. `npm run deploy` — builds `src/` → `dist/` and deploys the `api` function
+
+On instance init, the function registers Telegram/Stripe webhooks to
+`https://europe-west1-{project}.cloudfunctions.net/api`. Override with `PUBLIC_BASE_URL` if needed.
 
 ## Templates
 
@@ -117,12 +128,23 @@ Required at startup:
 | --- | --- |
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
 | `TELEGRAM_SECRET_TOKEN` | Webhook secret header |
-| `NGROK_AUTH_TOKEN` | Tunnel for local webhooks |
-| `PORT` | Express port (default `8080`) |
 | `OPENAI_API_KEY` | Agent, RAG embeddings, analysis |
 | `FIREBASE_PROJECT_ID` | Firebase / Firestore project |
 | `KB_USER_ID` | Vector-store user id for firm FAQ docs |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Payments |
+
+Local only:
+
+| Variable | Purpose |
+| --- | --- |
+| `NGROK_AUTH_TOKEN` | Tunnel for local webhooks |
+| `PORT` | Express port (default `8080`) |
+
+Production only:
+
+| Variable | Purpose |
+| --- | --- |
+| `PUBLIC_BASE_URL` | Optional override for the public function URL used to register webhooks |
 
 Optional:
 
@@ -133,4 +155,4 @@ Optional:
 | `STRIPE_DEV` | off | `1` = skip live Stripe webhook registration |
 | `STRIPE_CURRENCY` | `ron` | Checkout currency |
 | `ADMIN_TELEGRAM_IDS` | — | Comma-separated admin Telegram user ids |
-| `GOOGLE_APPLICATION_CREDENTIALS` | ADC | Path to Firebase service-account JSON |
+| `GOOGLE_APPLICATION_CREDENTIALS` | ADC | Path to Firebase service-account JSON (local) |

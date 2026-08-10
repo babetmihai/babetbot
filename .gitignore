@@ -33,6 +33,8 @@ __pycache__/
 package-lock.json*
 credentials.json*
 build
+lib
+dist
 downloads
 .env*
 .env

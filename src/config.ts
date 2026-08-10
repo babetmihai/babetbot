@@ -4,7 +4,8 @@ import { renderTemplate } from "./lib/templates.js"
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 export const TELEGRAM_SECRET_TOKEN = process.env.TELEGRAM_SECRET_TOKEN
 export const NGROK_AUTH_TOKEN = process.env.NGROK_AUTH_TOKEN
-export const PORT = process.env.PORT
+export const PORT = process.env.PORT || "8080"
+export const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 
 const requiredEnv = (key) => {
