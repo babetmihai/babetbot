@@ -1,1 +1,0 @@
-Consent must be a clear "yes" or "no". Ask the client to confirm they agree to share their information with a provider.

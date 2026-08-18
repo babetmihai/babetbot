@@ -217,7 +217,7 @@ const startCaseOffer = async (clientTelegramId, clientChatId, userGoals) => {
 
   const offerText = renderTemplate("provider/offer", { intakeSummary: buildIntakeSummary(userGoals) })
   try {
-    await sendToTopic(adminChatId, 1, offerText, {
+    await telegram.sendMessage(adminChatId, offerText, {
       reply_markup: {
         inline_keyboard: [[
           { text: "Accept client", callback_data: `offer:${clientTelegramId}:accept` },
@@ -225,6 +225,7 @@ const startCaseOffer = async (clientTelegramId, clientChatId, userGoals) => {
         ]]
       }
     })
+    console.log("[cases] offer sent", { clientTelegramId, adminChatId })
   } catch (error) {
     console.error("startCaseOffer send error", error.message)
     await offerRef.delete()

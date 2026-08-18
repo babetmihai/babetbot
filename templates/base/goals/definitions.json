@@ -7,17 +7,10 @@
     "priority": 10
   },
   {
-    "key": "consent",
-    "label": "Consent",
-    "description": "Whether the client agrees to share their intake information with an assigned provider.",
-    "goalType": "collect",
-    "priority": 20
-  },
-  {
     "key": "practice_area",
     "label": "Focus area",
     "description": "The focus area, inferred from the client discussion.",
     "goalType": "derive",
-    "priority": 30
+    "priority": 20
   }
 ]

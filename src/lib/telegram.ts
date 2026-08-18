@@ -15,6 +15,11 @@ export const isAdmin = (telegramUserId) =>
 
 export const fetchAdmin = async () => {
   const chat = await telegram.getChat(Number(adminTelegramId))
+  const isPrivate = chat.type === "private"
+  if (!isPrivate) {
+    throw new Error("ADMIN_TELEGRAM_ID must be a private user chat")
+  }
+
   const name = [chat.first_name, chat.last_name].filter(Boolean).join(" ")
   return {
     telegramUserId: adminTelegramId,
@@ -24,7 +29,7 @@ export const fetchAdmin = async () => {
 
 export const notifyAdmin = async (text, extra = {}) => {
   try {
-    await sendToTopic(Number(adminTelegramId), 1, text, extra)
+    await telegram.sendMessage(Number(adminTelegramId), text, extra)
   } catch (error) {
     console.error("notifyAdmin error", error.message)
   }

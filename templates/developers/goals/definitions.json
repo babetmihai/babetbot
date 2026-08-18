@@ -19,12 +19,5 @@
     "description": "What the client can spend on building the app.",
     "goalType": "collect",
     "priority": 30
-  },
-  {
-    "key": "consent",
-    "label": "Consent",
-    "description": "Whether the client agrees to share their intake information with an assigned developer.",
-    "goalType": "collect",
-    "priority": 40
   }
 ]

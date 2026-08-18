@@ -14,8 +14,6 @@ const {
   AGENT_MODEL
 } = process.env
 
-export const CONSENT_YES_VALUE = "yes"
-
 export type GoalDefinition = {
   key: string
   label: string
@@ -88,35 +86,13 @@ export const getMissingGoals = (userGoals) =>
   getCollectGoals(userGoals).filter((goal) => !trimmedGoalValue(goal))
 
 export const areIntakeGoalsComplete = (userGoals) =>
-  getRequiredIntakeGoals(userGoals).every((goal) => {
-    const trimmed = (goal.value || "").trim()
-    if (!trimmed) return false
-    if (goal.key === "consent") {
-      if (isDeclinedGoalValue(trimmed)) return false
-      return trimmed.toLowerCase() === CONSENT_YES_VALUE
-    }
-    return true
-  })
+  getRequiredIntakeGoals(userGoals).every((goal) => Boolean(trimmedGoalValue(goal)))
 
 export const buildIntakeSummary = (userGoals) =>
   getRequiredIntakeGoals(userGoals)
     .filter((goal) => trimmedGoalValue(goal))
     .map((goal) => `${goal.label}: ${trimmedGoalValue(goal)}`)
     .join("\n")
-
-export const validateGoalValue = (goalKey, value) => {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-
-  if (goalKey === "consent") {
-    const lower = trimmed.toLowerCase()
-    if (["yes", "y", "agree", "i agree", "accepted", "accept"].includes(lower)) return CONSENT_YES_VALUE
-    if (["no", "n", "decline", "declined", "disagree", "i do not agree"].includes(lower)) return DECLINED_GOAL_VALUE
-    return null
-  }
-
-  return trimmed
-}
 
 export const formatGoalContextForTools = (userGoals) =>
   getRequiredIntakeGoals(userGoals)
@@ -179,11 +155,14 @@ export const updateUserGoal = tool(async ({ goalKey, value }, config: TToolConfi
       return `Unknown goal key "${goalKey}". Valid keys: ${userGoals.map((item) => item.key).join(", ")}`
     }
 
-    const normalized = validateGoalValue(goalKey, value)
+    const nextGoal = getMissingGoals(userGoals)[0]
+    const savingLaterGoal = nextGoal && nextGoal.key !== goalKey
+    if (savingLaterGoal) {
+      return `Cannot save "${goalKey}" yet. Next goal is "${nextGoal.key}" (${nextGoal.label}). Save that first if the thread already has a clear answer, otherwise ask for it.`
+    }
+
+    const normalized = value.trim()
     if (!normalized) {
-      if (goalKey === "consent") {
-        return loadTemplate("agent/consent-validation-hint").trim()
-      }
       return `Could not save "${definition.label}" from that value. Ask the client again.`
     }
 

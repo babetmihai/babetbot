@@ -3,4 +3,12 @@ Welcome, {providerName}.
 New client cases open as topics in this chat.
 Reply in the case topic to message the client.
 
-In case topics: /pay amount description · /close when done · /analyze for action points · /delete on closed topics.
+Knowledge base:
+Upload a PDF to add it
+/reset — clear the knowledge base
+
+In case topics:
+/pay amount description
+/close
+/analyze
+/delete

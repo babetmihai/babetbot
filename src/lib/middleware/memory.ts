@@ -66,7 +66,7 @@ const formatUserGoalsPrompt = (userGoals) => {
   if (nextGoal) {
     guidance += `Next goal to collect: ${nextGoal.key} (${nextGoal.label}) — ${nextGoal.description}`
     if (nextGoal.prompt) guidance += ` Ask using: "${nextGoal.prompt}"`
-    guidance += "\nOnly save this goal if the latest client message clearly provides it; otherwise ask for it now.\n"
+    guidance += "\nIf the latest message or earlier thread already has a clear answer, save it with update_user_goal now. Otherwise ask for it now.\n"
     if (missing.length > 1) {
       guidance += `Still waiting after that: ${missing.slice(1).map((goal) => goal.key).join(", ")}\n`
     }
