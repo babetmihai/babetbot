@@ -5,14 +5,17 @@ import {
   buildIntakeSummary,
   formatGoalContextForTools,
   getRequiredIntakeGoals,
+  mergeUserGoals,
   resetClientIntake
 } from "./goals.ts"
 import { renderTemplate } from "./templates.ts"
 import {
+  adminTelegramId,
   closeForumTopic,
   createForumTopic,
   editForumTopic,
   fetchAdmin,
+  isAdmin,
   notifyAdmin,
   sendToTopic,
   telegram
@@ -122,22 +125,126 @@ export const escalateToProvider = async (clientTelegramId, clientChatId, userGoa
     return renderTemplate("client/already-connected", { providerName: admin.name })
   }
 
-  let admin
+  const pendingOffer = await fetchPendingOffer(clientTelegramId)
+  if (pendingOffer) {
+    return renderTemplate("client/waiting-for-provider")
+  }
+
+  return startCaseOffer(clientTelegramId, clientChatId, userGoals)
+}
+
+export const acceptCaseOffer = async (offerId, actorTelegramUserId) => {
+  if (!isAdmin(actorTelegramUserId)) {
+    return { toast: "Not allowed." }
+  }
+
+  const offerRef = db.collection("case_offers").doc(offerId)
+  const claimed = await firestore.runTransaction(async (tx) => {
+    const doc = await tx.get(offerRef)
+    if (!doc.exists) return null
+    if (doc.data().status !== "pending") return null
+    tx.update(offerRef, {
+      status: "accepted",
+      acceptedAt: new Date().toISOString()
+    })
+    return mapOfferDoc(doc)
+  })
+
+  if (!claimed) {
+    return { toast: "This offer is no longer available." }
+  }
+
   try {
-    admin = await fetchAdmin()
+    const admin = await fetchAdmin()
+    const userGoals = await mergeUserGoals(claimed.clientTelegramId)
+    const { clientMessage } = await finalizeAcceptedCase(
+      claimed.clientTelegramId,
+      claimed.clientChatId,
+      userGoals,
+      admin
+    )
+    await telegram.sendMessage(claimed.clientChatId, clientMessage)
+    return { toast: "Case accepted." }
   } catch (error) {
-    console.error("fetchAdmin error", error.message)
+    console.error("acceptCaseOffer error", error.message)
+    await offerRef.update({ status: "pending", acceptedAt: null })
+    throw error
+  }
+}
+
+export const declineCaseOffer = async (offerId, actorTelegramUserId) => {
+  if (!isAdmin(actorTelegramUserId)) {
+    return { toast: "Not allowed." }
+  }
+
+  const offerRef = db.collection("case_offers").doc(offerId)
+  const declined = await firestore.runTransaction(async (tx) => {
+    const doc = await tx.get(offerRef)
+    if (!doc.exists) return null
+    if (doc.data().status !== "pending") return null
+    tx.update(offerRef, { status: "declined" })
+    return mapOfferDoc(doc)
+  })
+
+  if (!declined) {
+    return { toast: "This offer is no longer available." }
+  }
+
+  await telegram.sendMessage(
+    declined.clientChatId,
+    renderTemplate("client/declined")
+  )
+  return { toast: "Case declined." }
+}
+
+const fetchPendingOffer = async (clientTelegramId) => {
+  const doc = await db.collection("case_offers").doc(clientTelegramId).get()
+  if (!doc.exists) return null
+  const offer = mapOfferDoc(doc)
+  if (offer.status !== "pending") return null
+  return offer
+}
+
+const startCaseOffer = async (clientTelegramId, clientChatId, userGoals) => {
+  const offerRef = db.collection("case_offers").doc(clientTelegramId)
+  const adminChatId = Number(adminTelegramId)
+
+  const created = await firestore.runTransaction(async (tx) => {
+    const current = await tx.get(offerRef)
+    const alreadyPending = current.exists && current.data().status === "pending"
+    if (alreadyPending) return false
+    tx.set(offerRef, {
+      clientTelegramId,
+      clientChatId,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      acceptedAt: null
+    })
+    return true
+  })
+
+  if (!created) {
+    return renderTemplate("client/waiting-for-provider")
+  }
+
+  const offerText = renderTemplate("provider/offer", { intakeSummary: buildIntakeSummary(userGoals) })
+  try {
+    await telegram.sendMessage(adminChatId, offerText, {
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "Accept client", callback_data: `offer:${clientTelegramId}:accept` },
+          { text: "Decline", callback_data: `offer:${clientTelegramId}:decline` }
+        ]]
+      }
+    })
+  } catch (error) {
+    console.error("startCaseOffer send error", error.message)
+    await offerRef.delete()
     await notifyIntakeBlocked(clientTelegramId, userGoals)
     return renderTemplate("client/intake-blocked")
   }
 
-  const { clientMessage } = await finalizeAcceptedCase(
-    clientTelegramId,
-    clientChatId,
-    userGoals,
-    admin
-  )
-  return clientMessage
+  return renderTemplate("client/waiting-for-provider")
 }
 
 const notifyIntakeBlocked = async (clientTelegramId, userGoals) => {
@@ -248,6 +355,16 @@ const finalizeAcceptedCase = async (clientTelegramId, clientChatId, userGoals, a
 const buildCaseTopicName = (caseNumber, closed = false) => {
   const prefix = closed ? "Closed — " : ""
   return `${prefix}Case #${caseNumber}`
+}
+
+const mapOfferDoc = (doc) => {
+  const data = doc.data()
+  return {
+    id: doc.id,
+    clientTelegramId: data.clientTelegramId,
+    clientChatId: data.clientChatId,
+    status: data.status
+  }
 }
 
 const mapCaseDoc = (doc) => {

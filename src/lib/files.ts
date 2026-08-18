@@ -154,7 +154,8 @@ const buildCaseContext = async (caseRecord) => {
   const assignedRoleLabel = loadTemplate("llm/assigned-role-label").trim()
   const turns = await rag.listRecent(caseRecord.clientTelegramId, 12, { type: PROMPT_TYPES.conversation })
   const lines = turns.reverse().map((row) => {
-    const role = row.metadata.role === "assistant" ? assignedRoleLabel : "Client"
+    const isClient = row.metadata.role === "user"
+    const role = isClient ? "Client" : assignedRoleLabel
     return `${role}: ${row.pageContent}`
   })
 

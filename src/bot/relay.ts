@@ -1,7 +1,9 @@
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
 import {
+  acceptCaseOffer,
   closeCase,
+  declineCaseOffer,
   fetchActiveCaseInTopic,
   fetchClosedCaseInTopic
 } from "../lib/cases.ts"
@@ -139,6 +141,38 @@ bot.on("callback_query", async (ctx, next) => {
   if (!("data" in ctx.callbackQuery)) return next()
 
   const data = ctx.callbackQuery.data
+
+  if (data.startsWith("offer:")) {
+    const parts = data.split(":")
+    const offerId = parts[1]
+    const action = parts[2]
+
+    if (!offerId || !action) {
+      await ctx.answerCbQuery("Invalid offer action.")
+      return
+    }
+
+    try {
+      let result
+      if (action === "accept") {
+        result = await acceptCaseOffer(offerId, ctx.from.id.toString())
+      } else if (action === "decline") {
+        result = await declineCaseOffer(offerId, ctx.from.id.toString())
+      } else {
+        result = { toast: "Unknown action." }
+      }
+      await ctx.answerCbQuery(result.toast)
+      try {
+        await ctx.deleteMessage()
+      } catch (error) {
+        console.error("delete offer message error", error.message)
+      }
+    } catch (error) {
+      console.error("Error handling case offer:", error)
+      await ctx.answerCbQuery(renderTemplate("bot/error"))
+    }
+    return
+  }
 
   if (data.startsWith("analyze:")) {
     const caseId = data.split(":")[1]

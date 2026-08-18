@@ -46,6 +46,7 @@ const run = async () => {
   await deleteQueryDocs(db.collection("agent_checkpoints"))
   await deleteQueryDocs(db.collection("agent_writes"))
   await deleteQueryDocs(db.collection("intake_block_notifications"))
+  await deleteQueryDocs(db.collection("case_offers"))
   await deleteQueryDocs(db.collection("documents").where("scope", "==", "client"))
   await db.collection("counters").doc("cases").delete()
 

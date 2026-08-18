@@ -1,3 +1,0 @@
-Thank you.
-You are now connected with {providerName}.
-Continue messaging here — your messages go directly to them.

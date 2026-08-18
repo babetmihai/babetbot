@@ -64,10 +64,11 @@ const buildCaseContext = async (caseRecord) => {
 
 const formatConversationTurn = (row, providerPrefix, assignedRoleLabel) => {
   const content = row.pageContent
-  const isProvider = row.metadata.role === "assistant" && content.startsWith(providerPrefix)
+  const hasLegacyPrefix = row.metadata.role === "assistant" && content.startsWith(providerPrefix)
+  const isProvider = row.metadata.role === "provider" || hasLegacyPrefix
 
   if (isProvider) {
-    const body = content.slice(providerPrefix.length).trim()
+    const body = hasLegacyPrefix ? content.slice(providerPrefix.length).trim() : content
     return { role: assignedRoleLabel, body }
   }
 
