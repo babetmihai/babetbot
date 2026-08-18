@@ -1,15 +1,14 @@
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
 import {
+  areIntakeGoalsComplete,
   formatGoalContextForTools,
-  mergeUserGoals,
-  syncDerivedGoals
+  mergeUserGoals
 } from "../lib/goals.ts"
 import rag from "../lib/rag.ts"
 import {
   escalateToProvider,
-  fetchActiveCase,
-  isReadyForEscalation
+  fetchActiveCase
 } from "../lib/cases.ts"
 import { relayClientMessage } from "../lib/relay.ts"
 import { renderTemplate } from "../lib/templates.ts"
@@ -29,6 +28,7 @@ bot.on(message("text"), async (ctx) => {
   const userId = ctx.from.id.toString()
   if (ctx.message.text.startsWith("/")) return
   if (ctx.chat.type !== "private") return
+  if (ctx.message.message_thread_id) return
 
   const stopTyping = startTyping(ctx)
 
@@ -38,19 +38,17 @@ bot.on(message("text"), async (ctx) => {
     const activeCase = await fetchActiveCase(userId)
     if (activeCase) {
       await relayClientMessage(activeCase, textMessage)
-      await ctx.reply(renderTemplate("client/relay-sent"))
       return
     }
 
     const userGoals = await mergeUserGoals(userId)
-    const syncedGoals = await syncDerivedGoals(userId, userGoals, textMessage)
-
-    if (isReadyForEscalation(syncedGoals)) {
-      const handled = await tryConnectClient(ctx, userId, ctx.chat.id, syncedGoals, textMessage)
-      if (handled) return
+    const intakeComplete = areIntakeGoalsComplete(userGoals)
+    if (intakeComplete) {
+      await tryConnectClient(ctx, userId, ctx.chat.id, userGoals, textMessage)
+      return
     }
 
-    await runIntakeAgent(ctx, userId, ctx.chat.id, textMessage, syncedGoals)
+    await runIntakeAgent(ctx, userId, ctx.chat.id, textMessage, userGoals)
   } catch (error) {
     console.error("Error processing message:", error)
     await ctx.reply(renderTemplate("bot/error"))
@@ -77,17 +75,19 @@ const sendReply = async (ctx, userId, userMessage, reply) => {
 }
 
 const tryConnectClient = async (ctx, userId, chatId, userGoals, userMessage) => {
-  if (!isReadyForEscalation(userGoals)) return false
-
   const clientMessage = await escalateToProvider(userId, chatId, userGoals)
   await sendReply(ctx, userId, userMessage, clientMessage)
+}
+
+const tryConnectIfIntakeJustCompleted = async (ctx, userId, chatId, userMessage, userGoals) => {
+  const intakeJustCompleted = areIntakeGoalsComplete(userGoals)
+  if (!intakeJustCompleted) return false
+  await tryConnectClient(ctx, userId, chatId, userGoals, userMessage)
   return true
 }
 
-const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => {
-  const wasReadyForEscalation = isReadyForEscalation(syncedGoals)
-
-  const goalContext = formatGoalContextForTools(syncedGoals)
+const runIntakeAgent = async (ctx, userId, chatId, textMessage, userGoals) => {
+  const goalContext = formatGoalContextForTools(userGoals)
   const agentConfig = {
     context: { userId, chatId, goalContext, userMessage: textMessage },
     configurable: { thread_id: userId },
@@ -97,7 +97,7 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => 
   let result
   try {
     result = await withTimeout(
-      invokeIntakeAgent(textMessage, syncedGoals, agentConfig),
+      invokeIntakeAgent(textMessage, userGoals, agentConfig),
       AGENT_TIMEOUT_MS
     )
   } catch (error) {
@@ -105,18 +105,20 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => 
     if (errorCode === "INVALID_TOOL_RESULTS") {
       await checkpointer.deleteThread(userId)
       result = await withTimeout(
-        invokeIntakeAgent(textMessage, syncedGoals, agentConfig),
+        invokeIntakeAgent(textMessage, userGoals, agentConfig),
         AGENT_TIMEOUT_MS
       )
     } else if (errorCode === "GRAPH_RECURSION_LIMIT") {
       await checkpointer.deleteThread(userId)
-      const recoveredGoalsBase = await mergeUserGoals(userId)
-      const recoveredGoals = await syncDerivedGoals(userId, recoveredGoalsBase, textMessage)
-      const intakeJustCompleted = !wasReadyForEscalation && isReadyForEscalation(recoveredGoals)
-      if (intakeJustCompleted) {
-        const handled = await tryConnectClient(ctx, userId, chatId, recoveredGoals, textMessage)
-        if (handled) return
-      }
+      const recoveredGoals = await mergeUserGoals(userId)
+      const handled = await tryConnectIfIntakeJustCompleted(
+        ctx,
+        userId,
+        chatId,
+        textMessage,
+        recoveredGoals
+      )
+      if (handled) return
       await sendReply(ctx, userId, textMessage, renderTemplate("client/agent-stuck"))
       return
     } else {
@@ -124,17 +126,14 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, syncedGoals) => 
     }
   }
 
-  let updatedGoals = result.userGoals
-  if (!updatedGoals.length) {
-    updatedGoals = await mergeUserGoals(userId)
-  }
-  updatedGoals = await syncDerivedGoals(userId, updatedGoals, textMessage)
-
-  const intakeJustCompleted = !wasReadyForEscalation && isReadyForEscalation(updatedGoals)
-  if (intakeJustCompleted) {
-    const handled = await tryConnectClient(ctx, userId, chatId, updatedGoals, textMessage)
-    if (handled) return
-  }
+  const handled = await tryConnectIfIntakeJustCompleted(
+    ctx,
+    userId,
+    chatId,
+    textMessage,
+    result.userGoals
+  )
+  if (handled) return
 
   const reply = getAgentReply(result.messages)
   if (reply) {

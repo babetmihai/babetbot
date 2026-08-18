@@ -2,12 +2,11 @@ import { createMiddleware } from "langchain"
 import { z } from "zod"
 import {
   areIntakeGoalsComplete,
-  createUpdateUserGoalTool,
   formatGoalContextForTools,
   getMissingGoals,
-  getRequiredIntakeGoals,
   mergeUserGoals,
   syncDerivedGoals,
+  updateUserGoal,
   UserGoalSchema
 } from "../goals.ts"
 import type { TAgentRuntime } from "../agent.ts"
@@ -19,16 +18,10 @@ const stateSchema = z.object({
   userGoals: z.array(UserGoalSchema).default([])
 })
 
-const updateUserGoal = createUpdateUserGoalTool()
-
 const memoryMiddleware = createMiddleware({
   name: "memoryMiddleware",
   stateSchema,
   tools: [updateUserGoal],
-  beforeAgent: async (_state, runtime: TAgentRuntime) => {
-    const userGoals = await refreshUserGoals(runtime.context.userId, runtime.context.userMessage)
-    return { userGoals }
-  },
   afterAgent: async (_state, runtime: TAgentRuntime) => {
     const userGoals = await refreshUserGoals(runtime.context.userId, runtime.context.userMessage)
     return { userGoals }
@@ -62,8 +55,7 @@ const formatUserGoalsPrompt = (userGoals) => {
   const missing = getMissingGoals(userGoals)
   const nextGoal = missing[0]
   const known = formatGoalContextForTools(userGoals)
-  const requiredKeys = getRequiredIntakeGoals(userGoals).map((goal) => goal.key)
-  const intakeComplete = areIntakeGoalsComplete(userGoals, requiredKeys)
+  const intakeComplete = areIntakeGoalsComplete(userGoals)
 
   let guidance = `\n\n## Intake goals\n${GOAL_COLLECTION_RULES}\n`
   for (const goal of userGoals.filter((item) => item.goalType === "derive")) {

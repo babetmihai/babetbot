@@ -87,12 +87,11 @@ export const getRequiredIntakeGoals = (userGoals) =>
 export const getMissingGoals = (userGoals) =>
   getCollectGoals(userGoals).filter((goal) => !trimmedGoalValue(goal))
 
-export const areIntakeGoalsComplete = (userGoals, requiredKeys) =>
-  requiredKeys.every((key) => {
-    const { value } = userGoals.find((goal) => goal.key === key) || {}
-    const trimmed = (value || "").trim()
+export const areIntakeGoalsComplete = (userGoals) =>
+  getRequiredIntakeGoals(userGoals).every((goal) => {
+    const trimmed = (goal.value || "").trim()
     if (!trimmed) return false
-    if (key === "consent") {
+    if (goal.key === "consent") {
       if (isDeclinedGoalValue(trimmed)) return false
       return trimmed.toLowerCase() === CONSENT_YES_VALUE
     }
@@ -169,7 +168,7 @@ export const setUserGoalValue = async (userId, goalKey, value, goal) => {
   })
 }
 
-export const createUpdateUserGoalTool = () => tool(async ({ goalKey, value }, config: TToolConfig) => {
+export const updateUserGoal = tool(async ({ goalKey, value }, config: TToolConfig) => {
   try {
     const userId = config.context.userId
 
@@ -189,10 +188,6 @@ export const createUpdateUserGoalTool = () => tool(async ({ goalKey, value }, co
     }
 
     await setUserGoalValue(userId, goalKey, normalized, definition)
-    if ((definition.goalType || "collect") === "collect") {
-      const updatedGoals = await mergeUserGoals(userId)
-      await syncDerivedGoals(userId, updatedGoals, config.context.userMessage)
-    }
 
     return `Saved user goal "${definition.label}": "${value}"`
   } catch (error) {

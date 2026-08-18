@@ -15,6 +15,7 @@ const bot = new Composer()
 
 bot.on(message("document"), async (ctx) => {
   if (ctx.chat.type !== "private") return
+  if (ctx.message.message_thread_id) return
 
   try {
     const userId = ctx.from.id.toString()
@@ -54,6 +55,7 @@ bot.on(message("document"), async (ctx) => {
 
 bot.on(message("photo"), async (ctx) => {
   if (ctx.chat.type !== "private") return
+  if (ctx.message.message_thread_id) return
 
   try {
     const photos = ctx.message.photo

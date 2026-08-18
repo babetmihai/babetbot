@@ -69,15 +69,7 @@ export const deleteForumTopic = async (chatId, topicId) => {
   })
 }
 
-let cachedBotId = null
 let cachedBotUsername = null
-
-export const fetchBotId = async () => {
-  if (cachedBotId) return cachedBotId
-  const me = await telegram.getMe()
-  cachedBotId = me.id
-  return cachedBotId
-}
 
 export const fetchBotUsername = async () => {
   if (cachedBotUsername) return cachedBotUsername

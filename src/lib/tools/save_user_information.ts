@@ -4,7 +4,7 @@ import rag, { KB_SCOPE, PROMPT_TYPES } from "../rag.ts"
 import type { TToolConfig } from "../agent.ts"
 
 
-const _tool = tool(async ({ content, topic }, config: TToolConfig) => {
+export default tool(async ({ content, topic }, config: TToolConfig) => {
   try {
     const userId = config.context.userId
     console.log("save_user_information", userId, topic, content)
@@ -35,5 +35,3 @@ Keep content concise — do not repeat fields already in goalContext.`,
     )
   })
 })
-
-export default _tool

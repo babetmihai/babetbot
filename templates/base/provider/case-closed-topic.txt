@@ -1,1 +1,2 @@
-Case closed. Use /delete to remove this topic.
+Case closed. The client was notified and can start a new intake.
+Use /delete to remove this topic.

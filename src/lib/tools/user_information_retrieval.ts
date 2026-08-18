@@ -4,7 +4,7 @@ import rag from "../rag.ts"
 import type { TToolConfig } from "../agent.ts"
 
 
-const _tool = tool(async ({ query, k = 6 }, config: TToolConfig) => {
+export default tool(async ({ query, k = 6 }, config: TToolConfig) => {
   try {
     const userId = config.context.userId
     const knownGoals = (config.context.goalContext || "").trim()
@@ -32,5 +32,3 @@ const _tool = tool(async ({ query, k = 6 }, config: TToolConfig) => {
     k: z.number().optional().default(6).describe("Number of results to return (4–8 is usually best)")
   })
 })
-
-export default _tool

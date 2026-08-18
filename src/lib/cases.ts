@@ -1,10 +1,8 @@
 import db, { firestore } from "./firestore.ts"
 import checkpointer from "./checkpointer.ts"
 import {
-  areIntakeGoalsComplete,
   buildIntakeSummary,
   formatGoalContextForTools,
-  getRequiredIntakeGoals,
   mergeUserGoals,
   resetClientIntake
 } from "./goals.ts"
@@ -71,11 +69,6 @@ export const fetchClosedCaseInTopic = async (groupChatId, topicId) => {
   return mapCaseDoc(snapshot.docs[0])
 }
 
-export const isReadyForEscalation = (userGoals) => {
-  const keys = getRequiredIntakeGoals(userGoals).map((goal) => goal.key)
-  return areIntakeGoalsComplete(userGoals, keys)
-}
-
 export const closeCase = async (caseId) => {
   const ref = db.collection("cases").doc(caseId)
   const closedAt = new Date().toISOString()
@@ -103,11 +96,6 @@ export const closeCase = async (caseId) => {
     console.error("deleteThread error", caseRecord.clientTelegramId, error.message)
   }
 
-  await sendToTopic(
-    caseRecord.groupChatId,
-    caseRecord.topicId,
-    renderTemplate("provider/case-closed-topic")
-  )
   await editForumTopic(caseRecord.groupChatId, caseRecord.topicId, buildCaseTopicName(caseRecord.number, true))
 
   const isSupergroupForum = caseRecord.groupChatId < 0

@@ -1,9 +1,12 @@
 import rag from "./rag.ts"
+import { loadTemplate } from "./templates.ts"
 import { sendToTopic, telegram } from "./telegram.ts"
 
 
+const formatRelayLine = (role, message) => `[${role}]: ${message.trim()}`
+
 export const relayClientMessage = async (caseRecord, message) => {
-  const text = `[Client]: ${message.trim()}`
+  const text = formatRelayLine("Client", message)
 
   await sendToTopic(caseRecord.groupChatId, caseRecord.topicId, text)
   await rag.saveConversationTurn(caseRecord.clientTelegramId, "user", message)
@@ -11,8 +14,9 @@ export const relayClientMessage = async (caseRecord, message) => {
 
 export const relayProviderMessage = async (caseRecord, message) => {
   const text = message.trim()
+  const roleLabel = loadTemplate("llm/assigned-role-label").trim()
 
-  await telegram.sendMessage(caseRecord.clientChatId, text)
+  await telegram.sendMessage(caseRecord.clientChatId, formatRelayLine(roleLabel, text))
   await rag.saveConversationTurn(caseRecord.clientTelegramId, "provider", text)
 }
 

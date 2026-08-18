@@ -14,7 +14,7 @@ import {
   generateConversationAnalysis
 } from "../lib/conversation-analysis.ts"
 import { renderTemplate } from "../lib/templates.ts"
-import { deleteForumTopic, fetchBotId, isAdmin } from "../lib/telegram.ts"
+import { deleteForumTopic, isAdmin } from "../lib/telegram.ts"
 
 
 const bot = new Composer()
@@ -22,9 +22,13 @@ const bot = new Composer()
 bot.command("close", async (ctx, next) => {
   if (!isProviderCaseTopicMessage(ctx)) return next()
 
-  const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
+  const threadId = ctx.message.message_thread_id
+  const topicExtra = { message_thread_id: threadId }
+  const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, threadId)
   if (!caseRecord) {
-    await ctx.reply("No active case for this topic.")
+    const closedCase = await fetchClosedCaseInTopic(ctx.chat.id, threadId)
+    if (closedCase) return
+    await ctx.reply("No active case for this topic.", topicExtra)
     return
   }
 
@@ -32,6 +36,7 @@ bot.command("close", async (ctx, next) => {
   if (!allowed) return
 
   await closeCase(caseRecord.id)
+  await ctx.reply(renderTemplate("provider/case-closed-topic"), topicExtra)
 })
 
 bot.command("delete", async (ctx, next) => {
@@ -109,14 +114,20 @@ bot.command("analyze", async (ctx, next) => {
   } catch (error) {
     console.error("Error analyzing conversation:", error)
     const errorText = renderTemplate("bot/error")
-    if (pendingMessageId) {
+    if (!pendingMessageId) {
+      await ctx.reply(errorText, topicExtra)
+      return
+    }
+
+    try {
       await ctx.telegram.editMessageText(
         ctx.chat.id,
         pendingMessageId,
         undefined,
         errorText
-      ).catch(() => {})
-    } else {
+      )
+    } catch (error) {
+      console.error("Error editing analyze failure message:", error.message)
       await ctx.reply(errorText, topicExtra)
     }
   }
@@ -124,15 +135,14 @@ bot.command("analyze", async (ctx, next) => {
 
 bot.on(message("text"), async (ctx, next) => {
   if (!isProviderCaseTopicMessage(ctx)) return next()
-  if (ctx.message.text.startsWith("/")) return next()
+  if (ctx.message.text.startsWith("/")) return
 
-  const botId = await fetchBotId()
-  if (ctx.from.id === botId) return
+  if (ctx.from.id === ctx.botInfo.id) return
 
   const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
-  if (!caseRecord) return next()
+  if (!caseRecord) return
 
-  if (!isAdmin(ctx.from.id.toString())) return next()
+  if (!isAdmin(ctx.from.id.toString())) return
 
   await relayProviderMessage(caseRecord, ctx.message.text)
 })
@@ -182,14 +192,13 @@ bot.on("callback_query", async (ctx, next) => {
     }
 
     const message = ctx.callbackQuery.message
-    const hasTopic = message && "message_thread_id" in message && message.message_thread_id
-    const isPrivateTopic = ctx.chat.type === "private" && hasTopic
-    if (!isPrivateTopic) {
+    const threadId = privateTopicId(ctx.chat, message)
+    if (!threadId) {
       await ctx.answerCbQuery("Invalid analyze action.")
       return
     }
 
-    const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, message.message_thread_id)
+    const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, threadId)
     if (!caseRecord || caseRecord.id !== caseId) {
       await ctx.answerCbQuery("No active case for this file.")
       return
@@ -206,7 +215,7 @@ bot.on("callback_query", async (ctx, next) => {
       })
       const summary = await analyzeTelegramFileMessage(message, caseRecord)
       await answerCbQuerySafe(ctx)
-      await ctx.reply(`Summary:\n\n${summary}`, { message_thread_id: message.message_thread_id })
+      await ctx.reply(`Summary:\n\n${summary}`, { message_thread_id: threadId })
       await ctx.editMessageReplyMarkup({ inline_keyboard: [] })
     } catch (error) {
       console.error("Error analyzing file:", error)
@@ -223,14 +232,13 @@ bot.on("callback_query", async (ctx, next) => {
     }
 
     const message = ctx.callbackQuery.message
-    const hasTopic = message && "message_thread_id" in message && message.message_thread_id
-    const isPrivateTopic = ctx.chat.type === "private" && hasTopic
-    if (!isPrivateTopic) {
+    const threadId = privateTopicId(ctx.chat, message)
+    if (!threadId) {
       await ctx.answerCbQuery("Invalid refund action.")
       return
     }
 
-    const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, message.message_thread_id)
+    const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, threadId)
     if (!caseRecord) {
       await ctx.answerCbQuery("No active case for this topic.")
       return
@@ -263,12 +271,17 @@ const requireAdmin = async (ctx, notAssignedTemplate) => {
   return false
 }
 
-const isProviderCaseTopicMessage = (ctx) => {
-  const isPrivate = ctx.chat.type === "private"
-  const message = ctx.message
-  const hasTopic = message && "message_thread_id" in message && message.message_thread_id
-  return isPrivate && hasTopic
+const privateTopicId = (chat, message) => {
+  if (chat.type !== "private") return null
+  if (!message) return null
+  if (!("message_thread_id" in message)) return null
+  const threadId = message.message_thread_id
+  if (!threadId) return null
+  return threadId
 }
+
+const isProviderCaseTopicMessage = (ctx) =>
+  Boolean(privateTopicId(ctx.chat, ctx.message))
 
 const parsePayArgs = (text) => {
   const body = text.replace(/^\/pay(@\w+)?\s*/i, "").trim()
