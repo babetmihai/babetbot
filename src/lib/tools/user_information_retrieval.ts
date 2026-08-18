@@ -17,9 +17,7 @@ export default tool(async ({ query, k = 6 }, config: TToolConfig) => {
       return "NO_RELEVANT_RESULTS: No relevant information found in the knowledge base."
     }
 
-    return results
-      .map((doc, i) => `[${i + 1}] ${doc.pageContent}\nSource: ${JSON.stringify(doc.metadata)}`)
-      .join("\n\n")
+    return results.map((doc) => doc.pageContent.trim()).join("\n\n")
   } catch (error) {
     console.error("rag_user_tool error", error)
     return `User information retrieval error: ${error.message}`

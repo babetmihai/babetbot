@@ -6,6 +6,7 @@ Commands:
 
 Admin:
 Upload PDF documents to add studio FAQ material
+/reset — clear the knowledge base
 
 In case topics:
 /pay 150 Payment description

@@ -1,1 +1,1 @@
-All intake goals complete. You can still answer questions about the provider or the firm using retrieval. Do not mention provider connection or payment — the system handles that.
+All intake goals complete. You can still answer questions about the provider or the firm using retrieval — fluent sentences, no lists. Do not mention provider connection or payment — the system handles that.
