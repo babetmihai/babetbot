@@ -24,7 +24,7 @@ export const fetchAdmin = async () => {
 
 export const notifyAdmin = async (text, extra = {}) => {
   try {
-    await telegram.sendMessage(Number(adminTelegramId), text, extra)
+    await sendToTopic(Number(adminTelegramId), 1, text, extra)
   } catch (error) {
     console.error("notifyAdmin error", error.message)
   }

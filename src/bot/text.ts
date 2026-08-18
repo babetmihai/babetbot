@@ -3,7 +3,8 @@ import { message } from "telegraf/filters"
 import {
   areIntakeGoalsComplete,
   formatGoalContextForTools,
-  mergeUserGoals
+  mergeUserGoals,
+  syncDerivedGoals
 } from "../lib/goals.ts"
 import rag from "../lib/rag.ts"
 import {
@@ -86,6 +87,11 @@ const tryConnectIfIntakeJustCompleted = async (ctx, userId, chatId, userMessage,
   return true
 }
 
+const loadGoalsForEscalation = async (userId, userMessage) => {
+  const userGoals = await mergeUserGoals(userId)
+  return syncDerivedGoals(userId, userGoals, userMessage)
+}
+
 const runIntakeAgent = async (ctx, userId, chatId, textMessage, userGoals) => {
   const goalContext = formatGoalContextForTools(userGoals)
   const agentConfig = {
@@ -110,7 +116,7 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, userGoals) => {
       )
     } else if (errorCode === "GRAPH_RECURSION_LIMIT") {
       await checkpointer.deleteThread(userId)
-      const recoveredGoals = await mergeUserGoals(userId)
+      const recoveredGoals = await loadGoalsForEscalation(userId, textMessage)
       const handled = await tryConnectIfIntakeJustCompleted(
         ctx,
         userId,
@@ -126,12 +132,13 @@ const runIntakeAgent = async (ctx, userId, chatId, textMessage, userGoals) => {
     }
   }
 
+  const latestGoals = await loadGoalsForEscalation(userId, textMessage)
   const handled = await tryConnectIfIntakeJustCompleted(
     ctx,
     userId,
     chatId,
     textMessage,
-    result.userGoals
+    latestGoals
   )
   if (handled) return
 
