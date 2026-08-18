@@ -1,1 +1,0 @@
-Declined lawyer signup: {name} ({telegramUserId})

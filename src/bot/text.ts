@@ -9,9 +9,7 @@ import rag from "../lib/rag.ts"
 import {
   escalateToProvider,
   fetchActiveCase,
-  getIntakeProviderAvailability,
-  isReadyForEscalation,
-  notifyIntakeProviderBlocked
+  isReadyForEscalation
 } from "../lib/cases.ts"
 import { relayClientMessage } from "../lib/relay.ts"
 import { renderTemplate } from "../lib/templates.ts"
@@ -80,13 +78,6 @@ const sendReply = async (ctx, userId, userMessage, reply) => {
 
 const tryConnectClient = async (ctx, userId, chatId, userGoals, userMessage) => {
   if (!isReadyForEscalation(userGoals)) return false
-
-  const availability = await getIntakeProviderAvailability()
-  if (!availability.canCompleteIntake) {
-    await notifyIntakeProviderBlocked(userId, userGoals, availability)
-    await sendReply(ctx, userId, userMessage, renderTemplate("client/intake-blocked"))
-    return true
-  }
 
   const clientMessage = await escalateToProvider(userId, chatId, userGoals)
   await sendReply(ctx, userId, userMessage, clientMessage)

@@ -1,1 +1,0 @@
-Declined psychologist signup: {name} ({telegramUserId})

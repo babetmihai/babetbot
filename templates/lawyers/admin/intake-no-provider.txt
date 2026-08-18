@@ -1,5 +1,5 @@
-⚠️ Intake ready — no lawyer available
+⚠️ Intake ready — start the bot
 
 {intakeSummary}
 
-Have lawyers send /join Your Name in a private chat with the bot.
+Send /start to this bot so new clients can be connected.

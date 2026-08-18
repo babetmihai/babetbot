@@ -1,5 +1,5 @@
 import rag from "./rag.ts"
-import { sendToTopic, telegram } from "./telegram.ts"
+import { fetchAdmin, sendToTopic, telegram } from "./telegram.ts"
 
 
 export const relayClientMessage = async (caseRecord, message) => {
@@ -9,8 +9,9 @@ export const relayClientMessage = async (caseRecord, message) => {
   await rag.saveConversationTurn(caseRecord.clientTelegramId, "user", message)
 }
 
-export const relayProviderMessage = async (caseRecord, provider, message) => {
-  const text = `${provider.name}:\n${message.trim()}`
+export const relayProviderMessage = async (caseRecord, message) => {
+  const admin = await fetchAdmin()
+  const text = `${admin.name}:\n${message.trim()}`
 
   await telegram.sendMessage(caseRecord.clientChatId, text)
   await rag.saveConversationTurn(caseRecord.clientTelegramId, "assistant", text)

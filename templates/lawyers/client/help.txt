@@ -2,13 +2,10 @@ Commands:
 /start
 /help
 
-Lawyers:
-/join Your Name — request firm access
-
-Firm admins:
+Admin:
 Upload PDF documents to add firm FAQ material
 
-Lawyers (in case topics):
+In case topics:
 /pay 150 Payment description
 /close
 /analyze — summarize action points from the conversation

@@ -2,13 +2,8 @@ import { Telegraf } from "telegraf"
 import textBot from "./text.ts"
 import uploadBot from "./upload.ts"
 import relayBot from "./relay.ts"
-import adminBot from "./admin.ts"
-import {
-  fetchProviderByTelegramUserId,
-  markProviderBotStarted,
-  submitProviderSignupRequest
-} from "../lib/providers.ts"
 import { LEGAL_DISCLAIMER, renderTemplate } from "../lib/templates.ts"
+import { isAdmin } from "../lib/telegram.ts"
 
 
 const { TELEGRAM_BOT_TOKEN } = process.env
@@ -17,45 +12,14 @@ export const bot = new Telegraf(TELEGRAM_BOT_TOKEN)
 
 bot.start(async (ctx) => {
   const fromId = ctx.from.id.toString()
-  const provider = await fetchProviderByTelegramUserId(fromId)
 
-  if (provider) {
-    await markProviderBotStarted(fromId)
-    await ctx.reply(renderTemplate("provider/welcome", { providerName: provider.name }))
-    return
-  }
-
-  const isProviderLink = ctx.startPayload === "provider"
-  if (isProviderLink) {
-    await ctx.reply(renderTemplate("provider/signup-onboarding"))
+  if (isAdmin(fromId)) {
+    const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ")
+    await ctx.reply(renderTemplate("provider/welcome", { providerName: name }))
     return
   }
 
   await ctx.reply(renderTemplate("client/welcome", { legalDisclaimer: LEGAL_DISCLAIMER }))
-})
-
-bot.command("join", async (ctx) => {
-  if (ctx.chat.type !== "private") {
-    await ctx.reply("Use /join in a private chat with the bot.")
-    return
-  }
-
-  if (!("text" in ctx.message)) return
-
-  const name = ctx.message.text.replace(/^\/join(@\w+)?\s*/i, "").trim()
-  if (!name) {
-    await ctx.reply("Usage: /join Your Name")
-    return
-  }
-
-  const fromId = ctx.from.id.toString()
-  const result = await submitProviderSignupRequest({
-    telegramUserId: fromId,
-    telegramUsername: ctx.from.username || null,
-    name
-  })
-
-  await ctx.reply(result.message)
 })
 
 bot.help(async (ctx) => {
@@ -63,7 +27,6 @@ bot.help(async (ctx) => {
 })
 
 bot.use(relayBot)
-bot.use(adminBot)
 bot.use(textBot)
 bot.use(uploadBot)
 

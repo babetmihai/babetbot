@@ -7,7 +7,7 @@ alwaysApply: true
 
 Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI. ESM (`tsx` locally, Node 22 type-stripping in Functions), `.ts` import paths, env via `dotenv` at repo root.
 
-**Layout:** `src/bot/` — Telegram handlers; `src/lib/` — domain logic (cases, goals, providers, agent, rag, tools). Handlers compose from `lib/`. User-facing copy lives in `templates/`.
+**Layout:** `src/bot/` — Telegram handlers; `src/lib/` — domain logic (cases, goals, agent, rag, tools). Handlers compose from `lib/`. User-facing copy lives in `templates/`.
 
 ## Principles
 

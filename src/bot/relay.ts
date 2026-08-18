@@ -1,9 +1,7 @@
 import { Composer } from "telegraf"
 import { message } from "telegraf/filters"
 import {
-  acceptProviderOffer,
   closeCase,
-  declineProviderOffer,
   fetchActiveCaseInTopic,
   fetchClosedCaseInTopic
 } from "../lib/cases.ts"
@@ -13,9 +11,8 @@ import { relayProviderMessage } from "../lib/relay.ts"
 import {
   generateConversationAnalysis
 } from "../lib/conversation-analysis.ts"
-import { fetchProvider } from "../lib/providers.ts"
 import { renderTemplate } from "../lib/templates.ts"
-import { deleteForumTopic, fetchBotId } from "../lib/telegram.ts"
+import { deleteForumTopic, fetchBotId, isAdmin } from "../lib/telegram.ts"
 
 
 const bot = new Composer()
@@ -29,8 +26,8 @@ bot.command("close", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-close")
-  if (!provider) return
+  const allowed = await requireAdmin(ctx, "bot/not-assigned-close")
+  if (!allowed) return
 
   await closeCase(caseRecord.id)
 })
@@ -44,8 +41,8 @@ bot.command("delete", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-delete")
-  if (!provider) return
+  const allowed = await requireAdmin(ctx, "bot/not-assigned-delete")
+  if (!allowed) return
 
   await deleteForumTopic(caseRecord.groupChatId, caseRecord.topicId)
 })
@@ -59,8 +56,8 @@ bot.command("pay", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-pay")
-  if (!provider) return
+  const allowed = await requireAdmin(ctx, "bot/not-assigned-pay")
+  if (!allowed) return
 
   if (!("text" in ctx.message)) return
 
@@ -72,7 +69,6 @@ bot.command("pay", async (ctx, next) => {
 
   const payment = await createProviderPaymentRequest(
     caseRecord,
-    provider,
     parsed.amountCents,
     parsed.description
   )
@@ -90,8 +86,8 @@ bot.command("analyze", async (ctx, next) => {
     return
   }
 
-  const provider = await fetchAssignedProvider(ctx, caseRecord, "bot/not-assigned-analyze")
-  if (!provider) return
+  const allowed = await requireAdmin(ctx, "bot/not-assigned-analyze")
+  if (!allowed) return
 
   const topicExtra = { message_thread_id: ctx.message.message_thread_id }
   let pendingMessageId = null
@@ -134,12 +130,9 @@ bot.on(message("text"), async (ctx, next) => {
   const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
   if (!caseRecord) return next()
 
-  const provider = await fetchProvider(caseRecord.providerId)
-  if (!provider) return next()
+  if (!isAdmin(ctx.from.id.toString())) return next()
 
-  if (ctx.from.id.toString() !== provider.telegramUserId) return next()
-
-  await relayProviderMessage(caseRecord, provider, ctx.message.text)
+  await relayProviderMessage(caseRecord, ctx.message.text)
 })
 
 bot.on("callback_query", async (ctx, next) => {
@@ -168,8 +161,7 @@ bot.on("callback_query", async (ctx, next) => {
       return
     }
 
-    const provider = await fetchProvider(caseRecord.providerId)
-    if (!provider || ctx.from.id.toString() !== provider.telegramUserId) {
+    if (!isAdmin(ctx.from.id.toString())) {
       await ctx.answerCbQuery(renderTemplate("bot/not-assigned-analyze-file"))
       return
     }
@@ -226,38 +218,15 @@ bot.on("callback_query", async (ctx, next) => {
     return
   }
 
-  if (!data.startsWith("poffer:")) return next()
-
-  const parts = data.split(":")
-  const batchId = parts[1]
-  const action = parts[2]
-
-  if (!batchId || !action) {
-    await ctx.answerCbQuery("Invalid offer action.")
-    return
-  }
-
-  let result
-  if (action === "accept") {
-    result = await acceptProviderOffer(batchId, ctx.from.id.toString())
-  } else if (action === "decline") {
-    result = await declineProviderOffer(batchId, ctx.from.id.toString())
-  } else {
-    result = { toast: "Unknown action." }
-  }
-  await ctx.answerCbQuery(result.toast)
+  return next()
 })
 
 export default bot
 
-const fetchAssignedProvider = async (ctx, caseRecord, notAssignedTemplate) => {
-  const provider = await fetchProvider(caseRecord.providerId)
-  const fromId = ctx.from.id.toString()
-  if (!provider || fromId !== provider.telegramUserId) {
-    await ctx.reply(renderTemplate(notAssignedTemplate))
-    return null
-  }
-  return provider
+const requireAdmin = async (ctx, notAssignedTemplate) => {
+  if (isAdmin(ctx.from.id.toString())) return true
+  await ctx.reply(renderTemplate(notAssignedTemplate))
+  return false
 }
 
 const isProviderCaseTopicMessage = (ctx) => {

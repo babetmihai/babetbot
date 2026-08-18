@@ -1,8 +1,6 @@
 Welcome, {providerName}.
 
-How it works:
-1. Client offers arrive here — tap Accept to take a case
-2. Each case opens as its own topic in this chat
-3. Reply in the case topic to message the client
+New client cases open as topics in this chat.
+Reply in the case topic to message the client.
 
 In case topics: /pay amount description · /close when done · /analyze for action points · /delete on closed topics.

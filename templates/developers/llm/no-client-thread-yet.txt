@@ -1,0 +1,2 @@
+
+No client messages in the developer thread yet. Draft the developer's opening message based on the case background.

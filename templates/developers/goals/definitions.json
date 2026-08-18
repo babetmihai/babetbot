@@ -1,0 +1,30 @@
+[
+  {
+    "key": "idea",
+    "label": "Idea",
+    "description": "The app or product the client wants built.",
+    "goalType": "collect",
+    "priority": 10
+  },
+  {
+    "key": "budget",
+    "label": "Budget",
+    "description": "What the client can spend on building the app.",
+    "goalType": "collect",
+    "priority": 20
+  },
+  {
+    "key": "about",
+    "label": "About themselves",
+    "description": "Who the client is — background, role, or context for the project.",
+    "goalType": "collect",
+    "priority": 30
+  },
+  {
+    "key": "consent",
+    "label": "Consent",
+    "description": "Whether the client agrees to share their intake information with an assigned developer.",
+    "goalType": "collect",
+    "priority": 40
+  }
+]

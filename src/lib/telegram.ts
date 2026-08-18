@@ -3,26 +3,30 @@ import { Telegram } from "telegraf"
 
 const {
   TELEGRAM_BOT_TOKEN,
-  ADMIN_TELEGRAM_IDS
+  ADMIN_TELEGRAM_ID
 } = process.env
 
 export const telegram = new Telegram(TELEGRAM_BOT_TOKEN)
 
-export const adminTelegramIds = ADMIN_TELEGRAM_IDS
-  .split(",")
-  .map((id) => id.trim())
-  .filter(Boolean)
+export const adminTelegramId = ADMIN_TELEGRAM_ID
 
 export const isAdmin = (telegramUserId) =>
-  adminTelegramIds.includes(telegramUserId)
+  telegramUserId === adminTelegramId
 
-export const notifyAdmins = async (text, extra = {}) => {
-  for (const adminId of adminTelegramIds) {
-    try {
-      await telegram.sendMessage(Number(adminId), text, extra)
-    } catch (error) {
-      console.error("notifyAdmins error", adminId, error.message)
-    }
+export const fetchAdmin = async () => {
+  const chat = await telegram.getChat(Number(adminTelegramId))
+  const name = [chat.first_name, chat.last_name].filter(Boolean).join(" ")
+  return {
+    telegramUserId: adminTelegramId,
+    name
+  }
+}
+
+export const notifyAdmin = async (text, extra = {}) => {
+  try {
+    await telegram.sendMessage(Number(adminTelegramId), text, extra)
+  } catch (error) {
+    console.error("notifyAdmin error", error.message)
   }
 }
 

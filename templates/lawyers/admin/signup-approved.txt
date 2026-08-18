@@ -1,1 +1,0 @@
-Approved lawyer signup: {name} ({telegramUserId})

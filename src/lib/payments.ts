@@ -1,7 +1,6 @@
-import db from "./firestore.ts"
-import { fetchProvider } from "./providers.ts"
+import db, { firestore } from "./firestore.ts"
 import { renderTemplate } from "./templates.ts"
-import { sendToTopic, telegram } from "./telegram.ts"
+import { fetchAdmin, isAdmin, sendToTopic, telegram } from "./telegram.ts"
 import { createCheckoutSession, stripe } from "./stripe.ts"
 
 
@@ -34,7 +33,8 @@ export const fetchPaymentById = async (paymentId) => {
   return mapPaymentDoc(doc)
 }
 
-export const createProviderPaymentRequest = async (caseRecord, provider, amountCents, description) => {
+export const createProviderPaymentRequest = async (caseRecord, amountCents, description) => {
+  const admin = await fetchAdmin()
   const session = await createCheckoutSession({
     clientTelegramId: caseRecord.clientTelegramId,
     clientChatId: caseRecord.clientChatId,
@@ -65,7 +65,7 @@ export const createProviderPaymentRequest = async (caseRecord, provider, amountC
   const amountLabel = formatPaymentAmount(amountCents, stripeCurrency)
   const descriptionLine = description ? `For: ${description}\n` : ""
   const clientText = renderTemplate("payment/provider-request", {
-    providerName: provider.name,
+    providerName: admin.name,
     amountLabel,
     descriptionLine
   })
@@ -96,7 +96,7 @@ export const completePaymentFromSession = async (session) => {
   const paymentIntentId = getPaymentIntentId(session)
   const paidAt = new Date().toISOString()
 
-  const updated = await db.runTransaction(async (tx) => {
+  const updated = await firestore.runTransaction(async (tx) => {
     const current = await tx.get(existingDoc.ref)
     if (!current.exists) return null
     if (current.data().status !== "pending") return null
@@ -162,8 +162,7 @@ export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId,
     return { toast: "This payment is not for this case." }
   }
 
-  const provider = await fetchProvider(caseRecord.providerId)
-  if (!provider || provider.telegramUserId !== providerTelegramUserId) {
+  if (!isAdmin(providerTelegramUserId)) {
     return { toast: renderTemplate("bot/not-assigned-refund") }
   }
 
@@ -184,7 +183,7 @@ export const refundPaymentAsProvider = async (paymentId, providerTelegramUserId,
   await stripe.refunds.create({ payment_intent: paymentIntentId })
 
   const paymentRef = db.collection("payments").doc(paymentId)
-  const updated = await db.runTransaction(async (tx) => {
+  const updated = await firestore.runTransaction(async (tx) => {
     const current = await tx.get(paymentRef)
     if (!current.exists) return null
     if (current.data().status !== "paid") return null

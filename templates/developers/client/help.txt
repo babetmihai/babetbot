@@ -3,7 +3,7 @@ Commands:
 /help
 
 Admin:
-Upload PDF documents to add firm FAQ material
+Upload PDF documents to add studio FAQ material
 
 In case topics:
 /pay 150 Payment description

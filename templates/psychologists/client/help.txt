@@ -2,13 +2,10 @@ Commands:
 /start
 /help
 
-Psychologists:
-/join Your Name — request practice access
-
-Practice admins:
+Admin:
 Upload PDF documents to add practice FAQ material
 
-Psychologists (in case topics):
+In case topics:
 /pay 150 Payment description
 /close
 /analyze — summarize action points from the conversation

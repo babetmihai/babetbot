@@ -3,7 +3,7 @@ import { OpenAIEmbeddings } from "@langchain/openai"
 import path from "path"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
-import db, { FieldValue, deleteQueryDocs } from "./firestore.ts"
+import db, { FieldValue, deleteQueryDocs, firestore } from "./firestore.ts"
 
 
 const {
@@ -143,7 +143,7 @@ const addDocuments = async (docs) => {
   const texts = docs.map((doc) => doc.pageContent)
   const vectors = await embeddings.embedDocuments(texts)
 
-  let batch = db.batch()
+  let batch = firestore.batch()
   let count = 0
 
   for (let i = 0; i < docs.length; i += 1) {
@@ -165,7 +165,7 @@ const addDocuments = async (docs) => {
 
     if (count >= 400) {
       await batch.commit()
-      batch = db.batch()
+      batch = firestore.batch()
       count = 0
     }
   }

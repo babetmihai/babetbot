@@ -1,8 +1,8 @@
 import { HumanMessage } from "@langchain/core/messages"
 import { ChatOpenAI } from "@langchain/openai"
 import { getLlmMessageText } from "./agent.ts"
-import { fetchProvider } from "./providers.ts"
 import rag, { PROMPT_TYPES } from "./rag.ts"
+import { fetchAdmin } from "./telegram.ts"
 import { renderTemplate, loadTemplate } from "./templates.ts"
 
 
@@ -35,8 +35,8 @@ export const generateConversationAnalysis = async (caseRecord) => {
 
 const buildCaseContext = async (caseRecord) => {
   const assignedRoleLabel = loadTemplate("llm/assigned-role-label").trim()
-  const provider = await fetchProvider(caseRecord.providerId)
-  const providerPrefix = provider ? `${provider.name}:` : null
+  const admin = await fetchAdmin()
+  const providerPrefix = `${admin.name}:`
 
   const turns = await rag.listRecent(caseRecord.clientTelegramId, 30, { type: PROMPT_TYPES.conversation })
   const formatted = turns.reverse().map((row) => formatConversationTurn(row, providerPrefix, assignedRoleLabel))
@@ -64,7 +64,7 @@ const buildCaseContext = async (caseRecord) => {
 
 const formatConversationTurn = (row, providerPrefix, assignedRoleLabel) => {
   const content = row.pageContent
-  const isProvider = row.metadata.role === "assistant" && providerPrefix && content.startsWith(providerPrefix)
+  const isProvider = row.metadata.role === "assistant" && content.startsWith(providerPrefix)
 
   if (isProvider) {
     const body = content.slice(providerPrefix.length).trim()
