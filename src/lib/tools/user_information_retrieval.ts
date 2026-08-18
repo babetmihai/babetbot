@@ -14,7 +14,7 @@ export default tool(async ({ query, k = 6 }, config: TToolConfig) => {
     const results = await rag.listForIntake(userId, searchQuery, k)
 
     if (!results.length) {
-      return "NO_RELEVANT_RESULTS: No relevant information found in the firm's knowledge base."
+      return "NO_RELEVANT_RESULTS: No relevant information found in the knowledge base."
     }
 
     return results
@@ -26,7 +26,7 @@ export default tool(async ({ query, k = 6 }, config: TToolConfig) => {
   }
 }, {
   name: "user_information_retrieval",
-  description: "Retrieve information from the firm's knowledge base (FAQ PDFs) and client intake notes. Use for firm questions during intake.",
+  description: "Retrieve information from the knowledge base (FAQ PDFs) and client intake notes. Use for questions about the provider during intake.",
   schema: z.object({
     query: z.string().describe("Short, specific query. Do not repeat intake fields already in goalContext."),
     k: z.number().optional().default(6).describe("Number of results to return (4–8 is usually best)")

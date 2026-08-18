@@ -4,10 +4,10 @@ import path from "path"
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
 import db, { FieldValue, deleteQueryDocs, firestore } from "./firestore.ts"
+import { adminTelegramId } from "./telegram.ts"
 
 
 const {
-  KB_USER_ID,
   OPENAI_API_KEY
 } = process.env
 
@@ -19,7 +19,7 @@ export const PROMPT_TYPES = {
 }
 
 export const KB_SCOPE = {
-  firm: "firm",
+  provider: "provider",
   client: "client"
 } as const
 
@@ -48,11 +48,11 @@ const rag = {
   },
 
   listForIntake: async (clientUserId, query, count = 6) => {
-    const firmCount = Math.max(2, Math.ceil(count * 0.6))
-    const clientCount = Math.max(1, count - firmCount)
+    const kbCount = Math.max(2, Math.ceil(count * 0.6))
+    const clientCount = Math.max(1, count - kbCount)
 
-    const [firmResults, clientResults] = await Promise.all([
-      rag.list(KB_USER_ID, query, firmCount, { scope: KB_SCOPE.firm }),
+    const [kbResults, clientResults] = await Promise.all([
+      rag.list(adminTelegramId, query, kbCount),
       rag.list(clientUserId, query, clientCount * 2)
     ])
 
@@ -61,7 +61,7 @@ const rag = {
       return type === PROMPT_TYPES.note || type === PROMPT_TYPES.goal
     }).slice(0, clientCount)
 
-    return dedupeResults([...firmResults, ...clientKnowledge])
+    return dedupeResults([...kbResults, ...clientKnowledge])
   },
 
   ingestPdf: async (userId, role, filePath, extraMetadata = {}) => {

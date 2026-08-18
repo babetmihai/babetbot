@@ -11,7 +11,6 @@
     "start": "tsx watch src/dev.ts",
     "stripe": "stripe listen --forward-to localhost:8080/stripe/webhook --events checkout.session.completed",
     "dev": "concurrently -k \"npm:start\" \"npm:stripe\"",
-    "clear-chats": "tsx src/clear-chats.ts",
     "prod": "firebase deploy --only functions"
   },
   "dependencies": {

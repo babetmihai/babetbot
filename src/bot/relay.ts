@@ -9,7 +9,12 @@ import {
 } from "../lib/cases.ts"
 import { createProviderPaymentRequest, formatPaymentAmount, refundPaymentAsProvider } from "../lib/payments.ts"
 import { analyzeTelegramFileMessage } from "../lib/files.ts"
-import { relayProviderMessage } from "../lib/relay.ts"
+import {
+  getFileRelayLabel,
+  isRelayableFileMessage,
+  relayProviderFile,
+  relayProviderMessage
+} from "../lib/relay.ts"
 import {
   generateConversationAnalysis
 } from "../lib/conversation-analysis.ts"
@@ -145,6 +150,27 @@ bot.on(message("text"), async (ctx, next) => {
   if (!isAdmin(ctx.from.id.toString())) return
 
   await relayProviderMessage(caseRecord, ctx.message.text)
+})
+
+bot.on("message", async (ctx, next) => {
+  if (!isProviderCaseTopicMessage(ctx)) return next()
+  if (!isRelayableFileMessage(ctx.message)) return next()
+  if (ctx.from.id === ctx.botInfo.id) return
+
+  const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
+  if (!caseRecord) return
+
+  if (!isAdmin(ctx.from.id.toString())) return
+
+  try {
+    const label = getFileRelayLabel(ctx.message)
+    await relayProviderFile(caseRecord, ctx.chat.id, ctx.message.message_id, label)
+  } catch (error) {
+    console.error("Error relaying provider file:", error)
+    await ctx.reply(renderTemplate("bot/error"), {
+      message_thread_id: ctx.message.message_thread_id
+    })
+  }
 })
 
 bot.on("callback_query", async (ctx, next) => {

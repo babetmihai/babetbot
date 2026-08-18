@@ -1,0 +1,1 @@
+Only PDF files can be added to the knowledge base.
