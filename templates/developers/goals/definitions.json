@@ -9,7 +9,7 @@
   {
     "key": "idea",
     "label": "Idea",
-    "description": "The app or product the client wants built.",
+    "description": "The app or product the client wants built. Briefly describe the app or product, including the features and functionality.",
     "goalType": "collect",
     "priority": 20
   },
