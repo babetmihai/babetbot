@@ -27,13 +27,11 @@ const bot = new Composer()
 bot.command("close", async (ctx, next) => {
   if (!isProviderCaseTopicMessage(ctx)) return next()
 
-  const threadId = ctx.message.message_thread_id
-  const topicExtra = { message_thread_id: threadId }
-  const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, threadId)
+  const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
   if (!caseRecord) {
-    const closedCase = await fetchClosedCaseInTopic(ctx.chat.id, threadId)
+    const closedCase = await fetchClosedCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
     if (closedCase) return
-    await ctx.reply("No active case for this topic.", topicExtra)
+    await replyInTopic(ctx, "No active case for this topic.")
     return
   }
 
@@ -41,7 +39,7 @@ bot.command("close", async (ctx, next) => {
   if (!allowed) return
 
   await closeCase(caseRecord.id)
-  await ctx.reply(renderTemplate("provider/case-closed-topic"), topicExtra)
+  await replyInTopic(ctx, renderTemplate("provider/case-closed-topic"))
 })
 
 bot.command("delete", async (ctx, next) => {
@@ -49,7 +47,7 @@ bot.command("delete", async (ctx, next) => {
 
   const caseRecord = await fetchClosedCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
   if (!caseRecord) {
-    await ctx.reply("No closed case for this topic.")
+    await replyInTopic(ctx, "No closed case for this topic.")
     return
   }
 
@@ -64,7 +62,7 @@ bot.command("pay", async (ctx, next) => {
 
   const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
   if (!caseRecord) {
-    await ctx.reply("No active case for this topic.")
+    await replyInTopic(ctx, "No active case for this topic.")
     return
   }
 
@@ -75,7 +73,7 @@ bot.command("pay", async (ctx, next) => {
 
   const parsed = parsePayArgs(ctx.message.text)
   if (!parsed) {
-    await ctx.reply("Usage: /pay 150 Payment description")
+    await replyInTopic(ctx, "Usage: /pay 150 Payment description")
     return
   }
 
@@ -86,7 +84,7 @@ bot.command("pay", async (ctx, next) => {
   )
 
   const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
-  await ctx.reply(`Payment link sent to client (${amountLabel}).`)
+  await replyInTopic(ctx, `Payment link sent to client (${amountLabel}).`)
 })
 
 bot.command("analyze", async (ctx, next) => {
@@ -94,19 +92,18 @@ bot.command("analyze", async (ctx, next) => {
 
   const caseRecord = await fetchActiveCaseInTopic(ctx.chat.id, ctx.message.message_thread_id)
   if (!caseRecord) {
-    await ctx.reply("No active case for this topic.")
+    await replyInTopic(ctx, "No active case for this topic.")
     return
   }
 
   const allowed = await requireAdmin(ctx, "bot/not-assigned-analyze")
   if (!allowed) return
 
-  const topicExtra = { message_thread_id: ctx.message.message_thread_id }
   let pendingMessageId = null
 
   try {
     void ctx.sendChatAction("typing")
-    const pending = await ctx.reply("Analyzing conversation…", topicExtra)
+    const pending = await replyInTopic(ctx, "Analyzing conversation…")
     pendingMessageId = pending.message_id
 
     const analysis = await generateConversationAnalysis(caseRecord)
@@ -120,7 +117,7 @@ bot.command("analyze", async (ctx, next) => {
     console.error("Error analyzing conversation:", error)
     const errorText = renderTemplate("bot/error")
     if (!pendingMessageId) {
-      await ctx.reply(errorText, topicExtra)
+      await replyInTopic(ctx, errorText)
       return
     }
 
@@ -133,7 +130,7 @@ bot.command("analyze", async (ctx, next) => {
       )
     } catch (error) {
       console.error("Error editing analyze failure message:", error.message)
-      await ctx.reply(errorText, topicExtra)
+      await replyInTopic(ctx, errorText)
     }
   }
 })
@@ -293,9 +290,12 @@ export default bot
 
 const requireAdmin = async (ctx, notAssignedTemplate) => {
   if (isAdmin(ctx.from.id.toString())) return true
-  await ctx.reply(renderTemplate(notAssignedTemplate))
+  await replyInTopic(ctx, renderTemplate(notAssignedTemplate))
   return false
 }
+
+const replyInTopic = (ctx, text) =>
+  ctx.reply(text, { message_thread_id: ctx.message.message_thread_id })
 
 const privateTopicId = (chat, message) => {
   if (chat.type !== "private") return null
