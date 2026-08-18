@@ -1,5 +1,7 @@
 👋 Welcome.
 
+I'm the provider's assistant. I can tell you about them, and I'm here to listen to your situation so I can pass it along.
+
 {legalDisclaimer}
 
-Describe your legal matter when you're ready, or ask a general question about the firm.
+Ask about the provider or the firm, or describe your legal matter when you're ready.

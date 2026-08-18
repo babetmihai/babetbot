@@ -1,3 +1,5 @@
+I'm the developer's assistant. I answer questions about them and listen to your idea so I can pass it along.
+
 Commands:
 /start
 /help

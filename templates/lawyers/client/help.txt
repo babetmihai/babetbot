@@ -1,3 +1,5 @@
+I'm the lawyer's assistant. I answer questions about them and listen to your situation so I can pass it along.
+
 Commands:
 /start
 /help

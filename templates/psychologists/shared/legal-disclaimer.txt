@@ -1,3 +1,3 @@
 This assistant does not provide clinical advice and does not create a therapist-client relationship.
-It can answer general questions from the practice's materials and collect intake information.
+It answers questions from the practice's materials and listens to your situation so it can be passed to a psychologist.
 When ready, you will be connected with a psychologist from the practice.

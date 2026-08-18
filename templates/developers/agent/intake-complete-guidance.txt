@@ -1,1 +1,1 @@
-All intake goals complete. Do not mention developer connection or payment — the system handles that.
+All intake goals complete. You can still answer questions about the developer using retrieval. Do not mention developer connection or payment — the system handles that.
