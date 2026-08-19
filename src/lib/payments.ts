@@ -14,6 +14,7 @@ export type PaymentRecord = {
   caseId: string | null
   stripeSessionId: string
   stripePaymentIntentId: string | null
+  clientMessageId: number
   amountCents: number
   currency: string
   status: "pending" | "paid" | "refunded"
@@ -70,11 +71,13 @@ export const createProviderPaymentRequest = async (caseRecord, amountCents, desc
     descriptionLine
   })
 
-  await telegram.sendMessage(caseRecord.clientChatId, clientText, {
+  const sent = await telegram.sendMessage(caseRecord.clientChatId, clientText, {
     reply_markup: {
       inline_keyboard: [[{ text: "Pay with card", url: session.url }]]
     }
   })
+
+  await ref.update({ clientMessageId: sent.message_id })
 
   return payment
 }
@@ -131,6 +134,17 @@ export const completePaymentFromSession = async (session) => {
 
 const handlePaidProviderRequest = async (payment) => {
   const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
+
+  try {
+    await telegram.editMessageReplyMarkup(
+      payment.clientChatId,
+      payment.clientMessageId,
+      undefined,
+      { inline_keyboard: [] }
+    )
+  } catch (error) {
+    console.error("Error removing pay button:", error.message)
+  }
 
   await telegram.sendMessage(
     payment.clientChatId,
@@ -234,6 +248,7 @@ const mapPaymentDoc = (doc) => {
     caseId: data.caseId ?? null,
     stripeSessionId: data.stripeSessionId,
     stripePaymentIntentId: data.stripePaymentIntentId ?? null,
+    clientMessageId: data.clientMessageId,
     amountCents: data.amountCents,
     currency: data.currency,
     status: data.status,
