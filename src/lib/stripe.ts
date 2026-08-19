@@ -5,6 +5,7 @@ import { fetchBotUsername } from "./telegram.ts"
 const { STRIPE_SECRET_KEY } = process.env
 
 export const stripe = new Stripe(STRIPE_SECRET_KEY)
+export const STRIPE_WEBHOOK_PATH = "/stripe/webhook"
 
 const stripeWebhookEvents: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = ["checkout.session.completed"]
 
@@ -17,7 +18,8 @@ export const disableStripeWebhook = async () => {
   console.log("Stripe webhook endpoint disabled for local CLI")
 }
 
-export const ensureStripeWebhook = async (webhookUrl) => {
+export const ensureStripeWebhook = async (baseUrl) => {
+  const webhookUrl = `${baseUrl}${STRIPE_WEBHOOK_PATH}`
   const { data: endpoints } = await stripe.webhookEndpoints.list({ limit: 100 })
   const existing = endpoints.find((endpoint) => endpoint.metadata?.app === "babetbot")
 
@@ -31,7 +33,7 @@ export const ensureStripeWebhook = async (webhookUrl) => {
       })
       console.log(`Stripe webhook updated → ${webhookUrl}`)
     }
-    return
+    return webhookUrl
   }
 
   const endpoint = await stripe.webhookEndpoints.create({
@@ -42,6 +44,7 @@ export const ensureStripeWebhook = async (webhookUrl) => {
 
   console.log(`Stripe webhook created → ${webhookUrl}`)
   console.log(`Set STRIPE_WEBHOOK_SECRET=${endpoint.secret}`)
+  return webhookUrl
 }
 
 export const createCheckoutSession = async ({

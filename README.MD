@@ -103,18 +103,15 @@ Single-field equality lookups (`providers.telegramUserId`, `payments.stripeSessi
 1. Enable **Threaded Mode** for the bot in @BotFather.
 2. Create a Firestore **Standard** (Native mode) database and create the indexes above.
 3. Copy `.env` from a teammate or create one from the env list below. Authenticate with ADC or `GOOGLE_APPLICATION_CREDENTIALS`.
-4. `npm install` then `npm run dev` — local Express + ngrok + Stripe CLI forwarding.
-5. Or run `npm start` and `npm run stripe` in separate terminals.
+4. `npm install` then `npm start` — local Express + ngrok + Stripe CLI forwarding.
 
 ## Production (Firebase Functions)
 
-Same Express app as local. Dev entry is `src/dev.ts` (ngrok + `app.listen`); production entry is `src/prod.ts` (`onRequest`, Node 22 type-stripping — no `dist/` build).
+Same Express app as local. Dev entry is `src/dev.ts` (ngrok + `app.listen`); production entry is `src/deploy.ts` (`onRequest`, Node 22 type-stripping — no `dist/` build).
 
 1. `npm install` and `firebase login`
 2. Set function env/secrets in Firebase (same vars as `.env`)
-3. `npm run prod` — deploys the `api` function
-
-On instance init, the function registers Telegram/Stripe webhooks to
+3. `npm run deploy` — deploys the `api` function and registers Telegram/Stripe webhooks to
 `https://europe-west1-{project}.cloudfunctions.net/api`.
 
 ## Templates

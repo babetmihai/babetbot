@@ -1,16 +1,13 @@
 import express from "express"
-import bot from "./bot/index.ts"
+import bot, { BOT_WEBHOOK_PATH } from "./bot/index.ts"
 import { completePaymentFromSession } from "./lib/payments.ts"
-import { stripe } from "./lib/stripe.ts"
+import { stripe, STRIPE_WEBHOOK_PATH } from "./lib/stripe.ts"
 
 
 const {
   TELEGRAM_SECRET_TOKEN,
   STRIPE_WEBHOOK_SECRET
 } = process.env
-
-export const BOT_WEBHOOK_PATH = "/bot/webhook"
-export const STRIPE_WEBHOOK_PATH = "/stripe/webhook"
 
 const app = express()
 
@@ -22,7 +19,7 @@ app.post(STRIPE_WEBHOOK_PATH, express.raw({ type: "application/json" }), async (
 
   try {
     const event = stripe.webhooks.constructEvent(
-      getWebhookPayload(req),
+      req.body,
       signature,
       STRIPE_WEBHOOK_SECRET
     )
@@ -56,13 +53,3 @@ app.use((error, req, res, next) => {
 })
 
 export default app
-
-export const registerTelegramWebhook = async (baseUrl) => {
-  const botUrl = `${baseUrl}${BOT_WEBHOOK_PATH}`
-  await bot.telegram.setWebhook(botUrl, {
-    secret_token: TELEGRAM_SECRET_TOKEN
-  })
-  return botUrl
-}
-
-const getWebhookPayload = (req) => req.rawBody || req.body

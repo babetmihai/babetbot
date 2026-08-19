@@ -16,7 +16,8 @@ Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI. E
 3. **Direct code** — assume valid inputs and required env (throw at startup, not silent defaults). No defensive `?.`/`??` fallbacks for data that should exist. `try/catch` only when the caller must recover; catch variable `error`; use `error.message` (no `instanceof` checks); one try/catch per recoverable step.
 4. **Single init source** — one documented way per value; no `a || b || c` env/config chains. Read `process.env` immediately after the last import (two blank lines below), no central env re-exports, no hardcoded defaults. Multi-var: multiline destructure, not inline. Function base URL is built from region + `FIREBASE_PROJECT_ID` + function name.
 5. **Few layers** — inline logic used once; no thin wrappers or rename aliases. Extract helpers only at 2+ uses. Prefer lodash (`import _ from "lodash"`) at the call site for transforms (`keyBy`, `find`, `merge`, etc.) over one-off helpers.
-   - **Never again:** do not invent helpers that only rename, trim, template-wrap, or forward to one other call (`formatConversationAnalysis` → `text.trim()` was the anti-pattern). If the body is 1–3 trivial lines and has one call site, keep it at the call site. Dead exports of that kind get deleted, not “kept for later.”
+   - **Never** invent a function whose body is a rename, `||`/`??` pick, trim, template wrap, or forward to one other call — even “at file bottom.” One call site + 1–3 trivial lines = inline at the call site. Dead exports of that kind get deleted, not “kept for later.”
+   - Anti-patterns: `formatConversationAnalysis` → `text.trim()`; `getWebhookPayload` → `req.rawBody || req.body`.
 
 ## Code style
 
@@ -26,5 +27,5 @@ Node · TypeScript · Express · Telegraf · LangGraph · Firestore · OpenAI. E
 - **Access:** typed SDKs (Telegraf `ctx`, LangChain) — direct dot access, no root destructure. Untyped project data (rows, case records, parsed args) — `const { field } = obj || {}`, not chained `?.`.
 - **Types:** infer; omit param/return annotations (`strict: false`). New project types/interfaces/enums: `T` prefix (`TAgentRuntime`). Existing exports (`CaseRecord`, `UserGoal`) stay. Domain types at top of `lib/<domain>.ts` — no `*-types.ts` folders. Type `unknown` SDK callbacks on the parameter, not inline casts.
 - **Naming:** async DB/API loaders `fetch*` (plural for lists); sync/in-memory reads `get*`. No `Async` prefix on functions.
-- **Helpers:** `const fn = async () => {}` at file bottom — never nested inside handlers/middleware/tool callbacks. No `function` declarations for helpers.
+- **Helpers:** `const fn = async () => {}` at file bottom — never nested inside handlers/middleware/tool callbacks. No `function` declarations. This is only for real helpers (2+ call sites or non-trivial logic), not one-line aliases.
 - **bot/:** no regex for semantic decisions; `startsWith`/`split`/`trim` OK for commands and formatting.

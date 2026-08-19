@@ -7,8 +7,12 @@ import rag, { KB_SCOPE } from "../lib/rag.ts"
 import { adminTelegramId, isAdmin } from "../lib/telegram.ts"
 
 
-const { TELEGRAM_BOT_TOKEN } = process.env
+const {
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_SECRET_TOKEN
+} = process.env
 
+export const BOT_WEBHOOK_PATH = "/bot/webhook"
 export const bot = new Telegraf(TELEGRAM_BOT_TOKEN)
 
 bot.start(async (ctx) => {
@@ -44,5 +48,13 @@ bot.command("reset", async (ctx) => {
 bot.use(relayBot)
 bot.use(textBot)
 bot.use(uploadBot)
+
+export const registerTelegramWebhook = async (baseUrl) => {
+  const botUrl = `${baseUrl}${BOT_WEBHOOK_PATH}`
+  await bot.telegram.setWebhook(botUrl, {
+    secret_token: TELEGRAM_SECRET_TOKEN
+  })
+  return botUrl
+}
 
 export default bot

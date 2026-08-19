@@ -1,6 +1,7 @@
 import "dotenv/config"
 import ngrok from "@ngrok/ngrok"
-import app, { registerTelegramWebhook } from "./app.ts"
+import app from "./app.ts"
+import { registerTelegramWebhook } from "./bot/index.ts"
 import { disableStripeWebhook } from "./lib/stripe.ts"
 
 
