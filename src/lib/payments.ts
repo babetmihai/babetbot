@@ -136,14 +136,9 @@ const handlePaidProviderRequest = async (payment) => {
   const amountLabel = formatPaymentAmount(payment.amountCents, payment.currency)
 
   try {
-    await telegram.editMessageReplyMarkup(
-      payment.clientChatId,
-      payment.clientMessageId,
-      undefined,
-      { inline_keyboard: [] }
-    )
+    await telegram.deleteMessage(payment.clientChatId, payment.clientMessageId)
   } catch (error) {
-    console.error("Error removing pay button:", error.message)
+    console.error("Error deleting pay request:", error.message)
   }
 
   await telegram.sendMessage(
