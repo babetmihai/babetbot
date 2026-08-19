@@ -5,13 +5,10 @@ import { registerTelegramWebhook } from "./bot/index.ts"
 import { ensureStripeWebhook } from "./lib/stripe.ts"
 
 
-const { FIREBASE_PROJECT_ID } = process.env
-const FUNCTION_REGION = "europe-west1"
-const FUNCTION_NAME = "api"
-const FUNCTION_BASE_URL = `https://${FUNCTION_REGION}-${FIREBASE_PROJECT_ID}.cloudfunctions.net/${FUNCTION_NAME}`
+const { FUNCTION_BASE_URL } = process.env
 
 export const api = onRequest({
-  region: FUNCTION_REGION,
+  region: "europe-west1",
   memory: "1GiB",
   timeoutSeconds: 300,
   invoker: "public"
