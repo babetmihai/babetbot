@@ -17,9 +17,13 @@ app.post(STRIPE_WEBHOOK_PATH, express.raw({ type: "application/json" }), async (
     return res.sendStatus(400)
   }
 
+  const isRawBuffer = Buffer.isBuffer(req.body)
+  // @ts-ignore
+  const payload = isRawBuffer ? req.body : req.rawBody
+
   try {
     const event = stripe.webhooks.constructEvent(
-      req.body,
+      payload,
       signature,
       STRIPE_WEBHOOK_SECRET
     )
