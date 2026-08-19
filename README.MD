@@ -107,7 +107,7 @@ Single-field equality lookups (`providers.telegramUserId`, `payments.stripeSessi
 
 ## Production (Firebase Functions)
 
-Same Express app as local. Dev entry is `src/dev.ts` (ngrok + `app.listen`); production entry is `src/deploy.ts` (`onRequest`, Node 22 type-stripping — no `dist/` build).
+Same Express app as local. Local entry is `src/start.ts` (ngrok + `app.listen`); production entry is `src/deploy.ts` (`onRequest`, Node 22 type-stripping — no `dist/` build).
 
 1. `npm install` and `firebase login`
 2. Set function env/secrets in Firebase (same vars as `.env`)

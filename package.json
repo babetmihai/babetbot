@@ -8,8 +8,8 @@
     "node": "22"
   },
   "scripts": {
-    "dev": "concurrently -k \"tsx watch src/dev.ts\" \"stripe listen --forward-to localhost:8080/stripe/webhook --events checkout.session.completed\"",
-    "deploy": "firebase deploy --only functions && tsx src/deploy.ts --register"
+    "start": "concurrently -k \"tsx watch --env-file=.env --env-file=.env.local src/start.ts\" \"stripe listen --forward-to localhost:8080/stripe/webhook --events checkout.session.completed\"",
+    "deploy": "firebase deploy --only functions && tsx --env-file=.env src/deploy.ts --register"
   },
   "dependencies": {
     "@langchain/community": "^1.1.29",
